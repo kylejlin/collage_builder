@@ -458,8 +458,6 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    console.log("down 2");
-
     const selectedSpriteId = getSelectedSpriteId(
       pointerX,
       pointerY,
@@ -471,10 +469,7 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    console.log("down 1");
-
     if (key === "t") {
-      console.log("down 0");
       this.setState({
         pendingTransformation: {
           kind: PendingSpriteTransformationKind.Translate,
@@ -551,15 +546,6 @@ export class App extends Component<Props, State> {
         pendingTransformation !== null &&
         pendingTransformation.kind === PendingSpriteTransformationKind.Scale)
     ) {
-      console.log(
-        "up 0. pendingTransformation.finalized",
-        finalizePendingSpriteTransformation(
-          pendingTransformation,
-          getSprites(this.state)
-        ),
-        "oldState",
-        { ...this.state }
-      );
       this.setState((prevState) => {
         const sprites = getSprites({
           ...prevState,
@@ -594,7 +580,6 @@ export class App extends Component<Props, State> {
 
     this.setState((prevState) => {
       const { pendingTransformation } = prevState;
-      console.log("pointer updated to", pointerX, pointerY);
       return {
         ...prevState,
         pendingTransformation:
@@ -949,17 +934,6 @@ function finalizePendingSpriteTranslation(
   const oldSprite = sprites.find((s) => s.id === transformation.spriteId);
   const oldX = oldSprite === undefined ? 0 : oldSprite.x;
   const oldY = oldSprite === undefined ? 0 : oldSprite.y;
-
-  console.log(
-    "dx",
-    transformation.pointerCurrentX - transformation.pointerStartX,
-    "currentX::startX",
-    [transformation.pointerCurrentX, transformation.pointerStartX],
-    "newX",
-    oldX + transformation.pointerCurrentX - transformation.pointerStartX,
-    "oldX",
-    oldX
-  );
 
   return {
     kind: ActionKind.Translate,
