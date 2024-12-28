@@ -12,6 +12,7 @@ You can perform actions using the mouse and keyboard.
 | Translate sprite                | `T`                                                             |
 | Scale sprite (about its center) | `S`                                                             |
 | Delete sprite                   | `X`                                                             |
+| Duplicate sprite                | `D`                                                             |
 | Move sprite up                  | `U`                                                             |
 | Move sprite to top              | `I`                                                             |
 | Move sprite down                | `J`                                                             |
