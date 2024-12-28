@@ -5,11 +5,19 @@ enum ActionKind {
   Delete = "Delete",
   Translate = "Translate",
   Scale = "Scale",
+  ReorderLayers = "ReorderLayers",
 }
 
 enum PendingSpriteTransformationKind {
   Translate = "Translate",
   Scale = "Scale",
+}
+
+enum LayerChangeKind {
+  MoveUp = "MoveUp",
+  MoveDown = "MoveDown",
+  MoveToTop = "MoveToTop",
+  MoveToBottom = "MoveToBottom",
 }
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
@@ -38,7 +46,11 @@ interface ImageFile {
   readonly imageElement: HTMLImageElement;
 }
 
-type Action = SpriteCreation | SpriteDeletion | SpriteTransformation;
+type Action =
+  | SpriteCreation
+  | SpriteDeletion
+  | SpriteTransformation
+  | SpriteLayerReordering;
 
 interface SpriteCreation {
   readonly kind: ActionKind.Create;
@@ -63,6 +75,12 @@ interface SpriteScaling {
   readonly kind: ActionKind.Scale;
   readonly spriteId: number;
   readonly newWidth: number;
+}
+
+interface SpriteLayerReordering {
+  readonly kind: ActionKind.ReorderLayers;
+  readonly spriteId: number;
+  readonly layerChangeKind: LayerChangeKind;
 }
 
 type PendingSpriteTransformation =
@@ -622,32 +640,88 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    if (key === "d") {
-      const pointerCoords = this.getPointerCoords();
+    const pointerCoords = this.getPointerCoords();
 
-      if (pointerCoords === null) {
-        return;
-      }
+    if (pointerCoords === null) {
+      return;
+    }
 
-      const [pointerX, pointerY] = pointerCoords;
+    const [pointerX, pointerY] = pointerCoords;
 
-      const selectedSpriteId = getSelectedSpriteId(
-        pointerX,
-        pointerY,
-        this.state,
-        this.ghostCanvas
-      );
+    const selectedSpriteId = getSelectedSpriteId(
+      pointerX,
+      pointerY,
+      this.state,
+      this.ghostCanvas
+    );
 
-      if (selectedSpriteId === null) {
-        return;
-      }
+    if (selectedSpriteId === null) {
+      return;
+    }
 
+    if (key.toLowerCase() === "d" && pendingTransformation === null) {
       this.setState((prevState) => ({
         ...prevState,
         actions: prevState.actions.concat([
           {
             kind: ActionKind.Delete,
             spriteId: selectedSpriteId,
+          },
+        ]),
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "u" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.ReorderLayers,
+            spriteId: selectedSpriteId,
+            layerChangeKind: LayerChangeKind.MoveUp,
+          },
+        ]),
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "i" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.ReorderLayers,
+            spriteId: selectedSpriteId,
+            layerChangeKind: LayerChangeKind.MoveToTop,
+          },
+        ]),
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "j" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.ReorderLayers,
+            spriteId: selectedSpriteId,
+            layerChangeKind: LayerChangeKind.MoveDown,
+          },
+        ]),
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "k" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.ReorderLayers,
+            spriteId: selectedSpriteId,
+            layerChangeKind: LayerChangeKind.MoveToBottom,
           },
         ]),
       }));
@@ -901,6 +975,8 @@ function applyAction(
       return applySpriteTranslation(action, sprites);
     case ActionKind.Scale:
       return applySpriteScaling(action, sprites);
+    case ActionKind.ReorderLayers:
+      return applySpriteLayerReordering(action, sprites);
   }
 }
 
@@ -958,6 +1034,52 @@ function applySpriteScaling(
         }
       : sprite
   );
+}
+
+function applySpriteLayerReordering(
+  action: SpriteLayerReordering,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  const spriteIndex = sprites.findIndex((s) => s.id === action.spriteId);
+
+  if (spriteIndex === -1) {
+    return sprites;
+  }
+
+  const sprite = sprites[spriteIndex];
+
+  switch (action.layerChangeKind) {
+    case LayerChangeKind.MoveUp:
+      if (spriteIndex === sprites.length - 1) {
+        return sprites;
+      }
+
+      return sprites
+        .slice(0, spriteIndex)
+        .concat([sprites[spriteIndex + 1], sprite])
+        .concat(sprites.slice(spriteIndex + 2));
+
+    case LayerChangeKind.MoveDown:
+      if (spriteIndex === 0) {
+        return sprites;
+      }
+
+      return sprites
+        .slice(0, spriteIndex - 1)
+        .concat([sprite, sprites[spriteIndex - 1]])
+        .concat(sprites.slice(spriteIndex + 1));
+
+    case LayerChangeKind.MoveToTop:
+      return sprites
+        .slice(0, spriteIndex)
+        .concat(sprites.slice(spriteIndex + 1))
+        .concat([sprite]);
+
+    case LayerChangeKind.MoveToBottom:
+      return [sprite]
+        .concat(sprites.slice(0, spriteIndex))
+        .concat(sprites.slice(spriteIndex + 1));
+  }
 }
 
 function applyPendingTransformation(
