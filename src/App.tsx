@@ -205,7 +205,8 @@ export class App extends Component<Props, State> {
       throw new Error("Failed to get 2D context for canvas");
     }
 
-    const { canvasWidthInput, canvasHeightInput } = this.state;
+    const { canvasWidthInput, canvasHeightInput, canvasBackgroundColorInput } =
+      this.state;
 
     const unscaledCanvasWidth = isNonNegativeIntegerString(canvasWidthInput)
       ? Number.parseInt(canvasWidthInput)
@@ -219,6 +220,15 @@ export class App extends Component<Props, State> {
 
     canvas.width = unscaledCanvasWidth * devicePixelRatio;
     canvas.height = unscaledCanvasHeight * devicePixelRatio;
+
+    if (isCanvasBackgroundColorOpaque(canvasBackgroundColorInput)) {
+      const hexColor = canvasBackgroundColorInput.startsWith("#")
+        ? canvasBackgroundColorInput
+        : "#" + canvasBackgroundColorInput;
+      canvas.style.backgroundColor = hexColor;
+    } else {
+      canvas.style.removeProperty("background-color");
+    }
   }
 
   onFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
