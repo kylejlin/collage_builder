@@ -1,6 +1,13 @@
 import { Component, createRef, ReactNode } from "react";
 
-enum SpriteAdjustmentKind {
+enum ActionKind {
+  Create = "Create",
+  Delete = "Delete",
+  Translate = "Translate",
+  Scale = "Scale",
+}
+
+enum PendingSpriteAdjustmentKind {
   Translate = "Translate",
   Scale = "Scale",
 }
@@ -16,8 +23,8 @@ interface State {
   readonly canvasHeightInput: string;
   readonly canvasScaleInput: string;
   readonly canvasBackgroundColorInput: string;
-  readonly sprites: readonly Sprite[];
-  readonly adjustment: null | SpriteAdjustment;
+  readonly actions: readonly Action[];
+  readonly pendingAdjustment: null | PendingSpriteAdjustment;
 }
 
 interface ImageFile {
@@ -29,6 +36,53 @@ interface ImageFile {
   readonly imageElement: HTMLImageElement;
 }
 
+type Action = SpriteCreation | SpriteDeletion | SpriteAdjustment;
+
+interface SpriteCreation {
+  readonly kind: ActionKind.Create;
+  readonly image: ImageFile;
+}
+
+interface SpriteDeletion {
+  readonly kind: ActionKind.Delete;
+  readonly spriteId: number;
+}
+
+type SpriteAdjustment = SpriteTranslation | SpriteScaling;
+
+interface SpriteTranslation {
+  readonly kind: ActionKind.Translate;
+  readonly spriteId: number;
+  readonly newX: number;
+  readonly newY: number;
+}
+
+interface SpriteScaling {
+  readonly kind: ActionKind.Scale;
+  readonly spriteId: number;
+  readonly newWidth: number;
+}
+
+type PendingSpriteAdjustment = PendingSpriteTranslation | PendingSpriteScaling;
+
+interface PendingSpriteTranslation {
+  readonly kind: PendingSpriteAdjustmentKind.Translate;
+  readonly spriteId: number;
+  readonly pointerStartX: number;
+  readonly pointerStartY: number;
+  readonly pointerCurrentX: number;
+  readonly pointerCurrentY: number;
+}
+
+interface PendingSpriteScaling {
+  readonly kind: PendingSpriteAdjustmentKind.Scale;
+  readonly spriteId: number;
+  readonly pointerStartX: number;
+  readonly pointerStartY: number;
+  readonly pointerCurrentX: number;
+  readonly pointerCurrentY: number;
+}
+
 interface Sprite {
   readonly name: string;
   readonly id: number;
@@ -36,26 +90,6 @@ interface Sprite {
   readonly x: number;
   readonly y: number;
   readonly width: number;
-}
-
-type SpriteAdjustment = SpriteTranslation | SpriteScaling;
-
-interface SpriteTranslation {
-  readonly kind: SpriteAdjustmentKind.Translate;
-  readonly spriteId: number;
-  readonly pointerStartX: number;
-  readonly pointerStartY: number;
-  readonly pointerCurrentX: number;
-  readonly pointerCurrentY: number;
-}
-
-interface SpriteScaling {
-  readonly kind: SpriteAdjustmentKind.Scale;
-  readonly spriteId: number;
-  readonly pointerStartX: number;
-  readonly pointerStartY: number;
-  readonly pointerCurrentX: number;
-  readonly pointerCurrentY: number;
 }
 
 export class App extends Component<Props, State> {
@@ -72,8 +106,8 @@ export class App extends Component<Props, State> {
       canvasHeightInput: "2532",
       canvasScaleInput: "0.5",
       canvasBackgroundColorInput: "transparent",
-      sprites: [],
-      adjustment: null,
+      actions: [],
+      pendingAdjustment: null,
     };
 
     this.canvasRef = createRef();
@@ -338,17 +372,11 @@ export class App extends Component<Props, State> {
 
   createSpriteFromImage(image: ImageFile): void {
     this.setState((prevState) => {
-      const newSprite: Sprite = {
-        name: image.name,
-        id: getUnusedId(prevState.sprites),
-        image,
-        x: 0,
-        y: 0,
-        width: image.width,
-      };
-
       return {
-        sprites: prevState.sprites.concat(newSprite),
+        actions: prevState.actions.concat({
+          kind: ActionKind.Create,
+          image,
+        }),
       };
     });
   }
@@ -498,6 +526,8 @@ function updateCanvasBackgroundColor(
 }
 
 function paintCanvas(canvas: HTMLCanvasElement, state: State): void {
+  const sprites = getSprites(state);
+
   const context = canvas.getContext("2d");
 
   if (context === null) {
@@ -509,7 +539,7 @@ function paintCanvas(canvas: HTMLCanvasElement, state: State): void {
   context.resetTransform();
   context.scale(devicePixelRatio, devicePixelRatio);
 
-  for (const sprite of state.sprites) {
+  for (const sprite of sprites) {
     context.drawImage(
       sprite.image.imageElement,
       sprite.x,
@@ -518,4 +548,82 @@ function paintCanvas(canvas: HTMLCanvasElement, state: State): void {
       (sprite.width * sprite.image.height) / sprite.image.width
     );
   }
+}
+
+function getSprites(state: State): readonly Sprite[] {
+  let sprites: readonly Sprite[] = [];
+
+  for (const action of state.actions) {
+    sprites = applyAction(action, sprites);
+  }
+
+  // TODO: Handle pending action.
+
+  return sprites;
+}
+
+function applyAction(
+  action: Action,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  switch (action.kind) {
+    case ActionKind.Create:
+      return applySpriteCreation(action, sprites);
+    case ActionKind.Delete:
+      return applySpriteDeletion(action, sprites);
+    case ActionKind.Translate:
+      return applySpriteTranslation(action, sprites);
+    case ActionKind.Scale:
+      return applySpriteScaling(action, sprites);
+  }
+}
+
+function applySpriteCreation(
+  action: SpriteCreation,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  return sprites.concat({
+    name: action.image.name,
+    id: getUnusedId(sprites),
+    image: action.image,
+    x: 0,
+    y: 0,
+    width: action.image.width,
+  });
+}
+
+function applySpriteDeletion(
+  action: SpriteDeletion,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  return sprites.filter((sprite) => sprite.id !== action.spriteId);
+}
+
+function applySpriteTranslation(
+  action: SpriteTranslation,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  return sprites.map((sprite) =>
+    sprite.id === action.spriteId
+      ? {
+          ...sprite,
+          x: action.newX,
+          y: action.newY,
+        }
+      : sprite
+  );
+}
+
+function applySpriteScaling(
+  action: SpriteScaling,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  return sprites.map((sprite) =>
+    sprite.id === action.spriteId
+      ? {
+          ...sprite,
+          width: action.newWidth,
+        }
+      : sprite
+  );
 }
