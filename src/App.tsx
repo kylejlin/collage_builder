@@ -96,6 +96,15 @@ interface Sprite {
   readonly width: number;
 }
 
+interface SpriteExportData {
+  readonly spriteName: string;
+  readonly imageFileName: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
   readonly fileInputRef: React.RefObject<HTMLInputElement>;
@@ -153,6 +162,8 @@ export class App extends Component<Props, State> {
     this.onWindowMouseMove = this.onWindowMouseMove.bind(this);
     this.onCanvasMouseEnter = this.onCanvasMouseEnter.bind(this);
     this.onCanvasMouseLeave = this.onCanvasMouseLeave.bind(this);
+    this.onDownloadSpritesDotJsonClick =
+      this.onDownloadSpritesDotJsonClick.bind(this);
   }
 
   addEventListeners(): void {
@@ -314,6 +325,12 @@ export class App extends Component<Props, State> {
                 <button onClick={this.onUploadButtonClick}>Upload new</button>
               )}
             </div>
+          </div>
+          <div className="ToolbarSection ImageLibrary">
+            <h2 className="SectionLabel">Export</h2>
+            <button onClick={this.onDownloadSpritesDotJsonClick}>
+              Download sprites.json
+            </button>
           </div>
         </div>
       </div>
@@ -680,6 +697,12 @@ export class App extends Component<Props, State> {
     this.setState({
       isMouseOverCanvas: false,
     });
+  }
+
+  onDownloadSpritesDotJsonClick(): void {
+    const sprites = getSprites(this.state);
+    const spritesJson = serializeSpritesAsJsonString(sprites);
+    downloadJsonString(spritesJson, "sprites.json");
   }
 }
 
@@ -1052,4 +1075,29 @@ function finalizePendingSpriteScaling(
     spriteId: transformation.spriteId,
     newWidth: (oldWidth * currentPointerDistance) / startPointerDistance,
   };
+}
+
+function serializeSpritesAsJsonString(sprites: readonly Sprite[]): string {
+  const out: SpriteExportData[] = sprites.map((sprite) => ({
+    spriteName: sprite.name,
+    imageFileName: sprite.image.name,
+    x: sprite.x,
+    y: sprite.y,
+    width: sprite.width,
+    height: (sprite.width * sprite.image.height) / sprite.image.width,
+  }));
+
+  return JSON.stringify(out, null, 2);
+}
+
+function downloadJsonString(jsonString: string, fileName: string): void {
+  const blob = new Blob([jsonString], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+
+  URL.revokeObjectURL(url);
 }
