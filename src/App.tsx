@@ -604,6 +604,38 @@ export class App extends Component<Props, State> {
       });
       return;
     }
+
+    if (key === "d") {
+      const pointerCoords = this.getPointerCoords();
+
+      if (pointerCoords === null) {
+        return;
+      }
+
+      const [pointerX, pointerY] = pointerCoords;
+
+      const selectedSpriteId = getSelectedSpriteId(
+        pointerX,
+        pointerY,
+        this.state,
+        this.ghostCanvas
+      );
+
+      if (selectedSpriteId === null) {
+        return;
+      }
+
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.Delete,
+            spriteId: selectedSpriteId,
+          },
+        ]),
+      }));
+      return;
+    }
   }
 
   todoDebugSprites(): readonly Sprite[] {
