@@ -10,6 +10,7 @@ interface State {
   readonly canvasScaleInput: string;
   readonly canvasBackgroundColorInput: string;
   readonly sprites: readonly Sprite[];
+  readonly selectedSpriteId: null | number;
 }
 
 interface ImageFile {
@@ -18,15 +19,16 @@ interface ImageFile {
   readonly height: number;
   readonly data: Uint8ClampedArray;
   readonly url: string;
+  readonly imageElement: HTMLImageElement;
 }
 
 interface Sprite {
   readonly name: string;
+  readonly id: number;
   readonly image: ImageFile;
   readonly x: number;
   readonly y: number;
   readonly width: number;
-  readonly height: number;
 }
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
@@ -46,6 +48,7 @@ export class App extends Component<Props, State> {
       canvasScaleInput: "0.5",
       canvasBackgroundColorInput: "transparent",
       sprites: [],
+      selectedSpriteId: null,
     };
 
     this.canvasRef = createRef();
@@ -186,7 +189,14 @@ export class App extends Component<Props, State> {
                   key={String(index) + ":" + imageFile.name}
                   className="ImageLibrary__ImageListItem"
                 >
-                  <button>Add</button> {imageFile.name}
+                  <button
+                    onClick={() => {
+                      this.createAndSelectSpriteFromImage(imageFile);
+                    }}
+                  >
+                    Add
+                  </button>{" "}
+                  {imageFile.name}
                 </li>
               ))}
             </ul>
@@ -219,49 +229,9 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    const context = canvas.getContext("2d");
-
-    if (context === null) {
-      throw new Error("Failed to get 2D context for canvas");
-    }
-
-    const {
-      canvasWidthInput,
-      canvasHeightInput,
-      canvasScaleInput,
-      canvasBackgroundColorInput,
-    } = this.state;
-
-    const unscaledCanvasWidth = isNonNegativeIntegerString(canvasWidthInput)
-      ? Number.parseInt(canvasWidthInput)
-      : 0;
-
-    const unscaledCanvasHeight = isNonNegativeIntegerString(canvasHeightInput)
-      ? Number.parseInt(canvasHeightInput)
-      : 0;
-
-    const { devicePixelRatio } = window;
-
-    canvas.width = unscaledCanvasWidth * devicePixelRatio;
-    canvas.height = unscaledCanvasHeight * devicePixelRatio;
-
-    const scale = isNonNegativeRealString(canvasScaleInput)
-      ? Number.parseFloat(canvasScaleInput)
-      : 1;
-
-    canvas.style.width =
-      String((unscaledCanvasWidth * scale) / devicePixelRatio) + "px";
-    canvas.style.height =
-      String((unscaledCanvasHeight * scale) / devicePixelRatio) + "px";
-
-    if (isCanvasBackgroundColorOpaque(canvasBackgroundColorInput)) {
-      const hexColor = canvasBackgroundColorInput.startsWith("#")
-        ? canvasBackgroundColorInput
-        : "#" + canvasBackgroundColorInput;
-      canvas.style.backgroundColor = hexColor;
-    } else {
-      canvas.style.removeProperty("background-color");
-    }
+    updateCanvasSize(canvas, this.state);
+    updateCanvasBackgroundColor(canvas, this.state);
+    paintCanvas(canvas, this.state);
   }
 
   onFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
@@ -340,6 +310,24 @@ export class App extends Component<Props, State> {
 
     fileInput.click();
   }
+
+  createAndSelectSpriteFromImage(image: ImageFile): void {
+    this.setState((prevState) => {
+      const newSprite: Sprite = {
+        name: image.name,
+        id: getUnusedId(prevState.sprites),
+        image,
+        x: 0,
+        y: 0,
+        width: image.width,
+      };
+
+      return {
+        sprites: prevState.sprites.concat(newSprite),
+        selectedSpriteId: newSprite.id,
+      };
+    });
+  }
 }
 
 function isImageFileName(name: string): boolean {
@@ -371,41 +359,32 @@ function loadImageFileFromArrayBuffer(
   });
   const url = URL.createObjectURL(blob);
 
-  const image = new Image();
+  const imageElement = new Image();
 
   const out = new Promise<ImageFile>((resolve, reject) => {
-    image.addEventListener("load", () => {
+    imageElement.addEventListener("load", () => {
       const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
+      canvas.width = imageElement.naturalWidth;
+      canvas.height = imageElement.naturalHeight;
 
       const context = canvas.getContext("2d")!;
-      context.drawImage(image, 0, 0);
+      context.drawImage(imageElement, 0, 0);
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob((blob) => {
-        if (blob === null) {
-          const error = new Error("Failed to create blob for " + imageName);
-          reject(error);
-          throw error;
-        }
-
-        const url = URL.createObjectURL(blob);
-
-        resolve({
-          name: imageName,
-          width: canvas.width,
-          height: canvas.height,
-          data: imageData.data,
-          url,
-        });
+      resolve({
+        name: imageName,
+        width: canvas.width,
+        height: canvas.height,
+        data: imageData.data,
+        url,
+        imageElement,
       });
     });
 
-    image.addEventListener("error", reject);
+    imageElement.addEventListener("error", reject);
   });
 
-  image.src = url;
+  imageElement.src = url;
 
   return out;
 }
@@ -442,4 +421,77 @@ function isCanvasBackgroundColorValid(value: string): boolean {
 
 function isCanvasBackgroundColorOpaque(value: string): boolean {
   return /^#?[a-f\d]{6}$/.test(value.toLowerCase());
+}
+
+function getUnusedId(sprites: readonly Sprite[]): number {
+  if (sprites.length === 0) {
+    return 0;
+  }
+
+  return 1 + Math.max(...sprites.map((sprite) => sprite.id));
+}
+
+function updateCanvasSize(canvas: HTMLCanvasElement, state: State): void {
+  const { canvasWidthInput, canvasHeightInput, canvasScaleInput } = state;
+
+  const unscaledCanvasWidth = isNonNegativeIntegerString(canvasWidthInput)
+    ? Number.parseInt(canvasWidthInput)
+    : 0;
+
+  const unscaledCanvasHeight = isNonNegativeIntegerString(canvasHeightInput)
+    ? Number.parseInt(canvasHeightInput)
+    : 0;
+
+  const { devicePixelRatio } = window;
+
+  canvas.width = unscaledCanvasWidth * devicePixelRatio;
+  canvas.height = unscaledCanvasHeight * devicePixelRatio;
+
+  const scale = isNonNegativeRealString(canvasScaleInput)
+    ? Number.parseFloat(canvasScaleInput)
+    : 1;
+
+  canvas.style.width =
+    String((unscaledCanvasWidth * scale) / devicePixelRatio) + "px";
+  canvas.style.height =
+    String((unscaledCanvasHeight * scale) / devicePixelRatio) + "px";
+}
+
+function updateCanvasBackgroundColor(
+  canvas: HTMLCanvasElement,
+  state: State
+): void {
+  const { canvasBackgroundColorInput } = state;
+
+  if (isCanvasBackgroundColorOpaque(canvasBackgroundColorInput)) {
+    const hexColor = canvasBackgroundColorInput.startsWith("#")
+      ? canvasBackgroundColorInput
+      : "#" + canvasBackgroundColorInput;
+    canvas.style.backgroundColor = hexColor;
+  } else {
+    canvas.style.removeProperty("background-color");
+  }
+}
+
+function paintCanvas(canvas: HTMLCanvasElement, state: State): void {
+  const context = canvas.getContext("2d");
+
+  if (context === null) {
+    throw new Error("Failed to get 2D context from canvas");
+  }
+
+  const { devicePixelRatio } = window;
+
+  context.resetTransform();
+  context.scale(devicePixelRatio, devicePixelRatio);
+
+  for (const sprite of state.sprites) {
+    context.drawImage(
+      sprite.image.imageElement,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      (sprite.width * sprite.image.height) / sprite.image.width
+    );
+  }
 }
