@@ -7,26 +7,26 @@ A simple web app for making collages. You can reposition and resize images, and 
 You can edit the collage by performing _actions_.
 You can perform actions using the mouse and keyboard.
 
-| **Action**                      | **Key**                                                         |
-| ------------------------------- | --------------------------------------------------------------- |
-| Translate sprite                | `T`                                                             |
-| Scale sprite (about its center) | `S`                                                             |
-| Delete sprite                   | `X`                                                             |
-| Duplicate sprite                | `D`                                                             |
-| Move sprite up                  | `U`                                                             |
-| Move sprite to top              | `I`                                                             |
-| Move sprite down                | `J`                                                             |
-| Move sprite to bottom           | `K`                                                             |
-| Rename sprite                   | `N`                                                             |
-| Undo action                     | `Z`                                                             |
-| Redo action                     | `Y`                                                             |
-| Create sprite                   | None. Read the [Exceptions section](#exceptions) for more info. |
+| **Action**                      | **Key**                                                   |
+| ------------------------------- | --------------------------------------------------------- |
+| Translate sprite                | `T`                                                       |
+| Scale sprite (about its center) | `S`                                                       |
+| Delete sprite                   | `X`                                                       |
+| Duplicate sprite                | `D`                                                       |
+| Move sprite up                  | `U`                                                       |
+| Move sprite to top              | `I`                                                       |
+| Move sprite down                | `J`                                                       |
+| Move sprite to bottom           | `K`                                                       |
+| Rename sprite                   | `N`                                                       |
+| Undo action                     | `Z`                                                       |
+| Redo action                     | `Y`                                                       |
+| Create sprite                   | None. Read the [Details section](#details) for more info. |
 
 In general, to perform an action, hover the mouse over the sprite you want to edit, and then press the corresponding key.
 For example, to rename a sprite, hover the mouse over said sprite and then press `N`.
 However, there are a few exceptions to this pattern, described in the next section.
 
-### Exceptions
+### Details
 
 For `T` and `S`, you need to hold down the key and move the mouse to translate or scale the sprite.
 As long as you hold down the key, the sprite will move or scale with the mouse.
