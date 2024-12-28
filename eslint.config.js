@@ -35,6 +35,9 @@ export default tseslint.config(
       ],
       ...react.configs.recommended.rules,
       ...react.configs["jsx-runtime"].rules,
+      "@typescript-eslint/unbound-method": "off",
+      "@typescript-eslint/explicit-function-return-type": "error",
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   }
 );

@@ -1,6 +1,8 @@
 import { Component, ReactNode } from "react";
 import JSZip from "jszip";
 
+type Props = object;
+
 interface State {
   readonly isProcessingFile: boolean;
   readonly uploadedFileName: string;
@@ -29,8 +31,8 @@ interface CropBounds {
 
 const IMAGE_EXTENSIONS = [".png", ".svg"];
 
-export class App extends Component<{}, State> {
-  constructor(props: {}) {
+export class App extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
 
     this.state = {
@@ -87,7 +89,10 @@ export class App extends Component<{}, State> {
           ) : originalImageFiles.length === 0 ? (
             <>
               <p>Upload an image or zip file.</p>
-              <p>Files with names that start with a "." will be ignored.</p>
+              <p>
+                Files with names that start with a &quot;.&quot; will be
+                ignored.
+              </p>
               <input
                 type="file"
                 accept={[".zip"].concat(IMAGE_EXTENSIONS).join(",")}
@@ -133,7 +138,8 @@ export class App extends Component<{}, State> {
             </p>
           ) : (
             <p className="BoldFontWeight">
-              If you do not understand this step, then just enter "0" below.
+              If you do not understand this step, then just enter &quot;0&quot;
+              below.
             </p>
           )}
           <input
@@ -242,7 +248,9 @@ export class App extends Component<{}, State> {
         {
           isProcessingFile: true,
         },
-        () => this.onZipFileUpload(file)
+        () => {
+          this.onZipFileUpload(file);
+        }
       );
       return;
     }
@@ -252,7 +260,9 @@ export class App extends Component<{}, State> {
         {
           isProcessingFile: true,
         },
-        () => this.onImageFileUpload(file)
+        () => {
+          this.onImageFileUpload(file);
+        }
       );
       return;
     }
@@ -261,7 +271,7 @@ export class App extends Component<{}, State> {
   }
 
   onZipFileUpload(file: File): void {
-    JSZip.loadAsync(file)
+    void JSZip.loadAsync(file)
       .then(getImageEntries)
       .then((imageEntries) =>
         Promise.all(imageEntries.map(loadImageFileFromZipEntry))
@@ -280,7 +290,7 @@ export class App extends Component<{}, State> {
   }
 
   onImageFileUpload(file: File): void {
-    file
+    void file
       .arrayBuffer()
       .then((buffer) => loadImageFileFromArrayBuffer(buffer, file.name))
       .then((imageFile) => {
@@ -335,7 +345,7 @@ export class App extends Component<{}, State> {
       10
     );
 
-    cropImagesAndAddPadding(originalImageFiles, transparentPadding).then(
+    void cropImagesAndAddPadding(originalImageFiles, transparentPadding).then(
       (croppedImageFiles) => {
         this.setState({
           croppedImageFiles,
@@ -358,7 +368,7 @@ export class App extends Component<{}, State> {
     if (isImageFileName(uploadedFileName)) {
       const [file] = croppedImageFiles;
 
-      getImageFileBuffer(file).then((buffer) => {
+      void getImageFileBuffer(file).then((buffer) => {
         const dotlessExtension = getDotlessExtension(uploadedFileName);
         const mimeType = "image/" + dotlessExtension.toLowerCase();
         const blob = new Blob([buffer], { type: mimeType });
@@ -684,7 +694,7 @@ function getImageFileBuffer(file: ImageFile): Promise<ArrayBuffer> {
 }
 
 function downloadZipFile(zip: JSZip, zipFileName: string): void {
-  zip.generateAsync({ type: "blob" }).then((blob) => {
+  void zip.generateAsync({ type: "blob" }).then((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
