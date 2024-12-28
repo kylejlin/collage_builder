@@ -7,6 +7,7 @@ interface State {
   readonly imageFiles: readonly ImageFile[];
   readonly canvasWidthInput: string;
   readonly canvasHeightInput: string;
+  readonly canvasScaleInput: string;
   readonly canvasBackgroundColorInput: string;
   readonly sprites: readonly Sprite[];
 }
@@ -42,6 +43,7 @@ export class App extends Component<Props, State> {
       imageFiles: [],
       canvasWidthInput: "1170",
       canvasHeightInput: "2532",
+      canvasScaleInput: "0.5",
       canvasBackgroundColorInput: "transparent",
       sprites: [],
     };
@@ -60,6 +62,7 @@ export class App extends Component<Props, State> {
     this.onFileInputChange = this.onFileInputChange.bind(this);
     this.onCanvasWidthInputChange = this.onCanvasWidthInputChange.bind(this);
     this.onCanvasHeightInputChange = this.onCanvasHeightInputChange.bind(this);
+    this.onCanvasScaleInputChange = this.onCanvasScaleInputChange.bind(this);
     this.onCanvasBackgroundColorInputChange =
       this.onCanvasBackgroundColorInputChange.bind(this);
     this.onUploadButtonClick = this.onUploadButtonClick.bind(this);
@@ -98,6 +101,7 @@ export class App extends Component<Props, State> {
       imageFiles,
       canvasWidthInput,
       canvasHeightInput,
+      canvasScaleInput,
       canvasBackgroundColorInput,
     } = this.state;
 
@@ -116,7 +120,7 @@ export class App extends Component<Props, State> {
         </div>
         <div className="Toolbar">
           <div className="ToolbarSection Toolbar__Settings">
-            <h2 className="SectionLabel">Canvas</h2>
+            <h2 className="SectionLabel">Canvas size</h2>
             <label className="Toolbar__TextSetting">
               Width:{" "}
               <input
@@ -143,8 +147,24 @@ export class App extends Component<Props, State> {
                 onChange={this.onCanvasHeightInputChange}
               />
             </label>
+          </div>
+          <div className="ToolbarSection Toolbar__Settings">
+            <h2>Canvas view</h2>
             <label className="Toolbar__TextSetting">
-              Background color (hex):{" "}
+              Scale:{" "}
+              <input
+                className={
+                  isNonNegativeRealString(canvasScaleInput)
+                    ? ""
+                    : "Input--invalid"
+                }
+                type="text"
+                value={canvasScaleInput}
+                onChange={this.onCanvasScaleInputChange}
+              />
+            </label>
+            <label className="Toolbar__TextSetting">
+              Background (hex):{" "}
               <input
                 className={
                   isCanvasBackgroundColorValid(canvasBackgroundColorInput)
@@ -205,8 +225,12 @@ export class App extends Component<Props, State> {
       throw new Error("Failed to get 2D context for canvas");
     }
 
-    const { canvasWidthInput, canvasHeightInput, canvasBackgroundColorInput } =
-      this.state;
+    const {
+      canvasWidthInput,
+      canvasHeightInput,
+      canvasScaleInput,
+      canvasBackgroundColorInput,
+    } = this.state;
 
     const unscaledCanvasWidth = isNonNegativeIntegerString(canvasWidthInput)
       ? Number.parseInt(canvasWidthInput)
@@ -220,6 +244,15 @@ export class App extends Component<Props, State> {
 
     canvas.width = unscaledCanvasWidth * devicePixelRatio;
     canvas.height = unscaledCanvasHeight * devicePixelRatio;
+
+    const scale = isNonNegativeRealString(canvasScaleInput)
+      ? Number.parseFloat(canvasScaleInput)
+      : 1;
+
+    canvas.style.width =
+      String((unscaledCanvasWidth * scale) / devicePixelRatio) + "px";
+    canvas.style.height =
+      String((unscaledCanvasHeight * scale) / devicePixelRatio) + "px";
 
     if (isCanvasBackgroundColorOpaque(canvasBackgroundColorInput)) {
       const hexColor = canvasBackgroundColorInput.startsWith("#")
@@ -281,6 +314,12 @@ export class App extends Component<Props, State> {
   onCanvasHeightInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
     this.setState({
       canvasHeightInput: event.target.value,
+    });
+  }
+
+  onCanvasScaleInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    this.setState({
+      canvasScaleInput: event.target.value,
     });
   }
 
@@ -389,6 +428,10 @@ function compareStrings(a: string, b: string): number {
 
 function isNonNegativeIntegerString(value: string): boolean {
   return /^\d+$/.test(value);
+}
+
+function isNonNegativeRealString(value: string): boolean {
+  return /^\d+(?:\.\d+)?$/.test(value);
 }
 
 function isCanvasBackgroundColorValid(value: string): boolean {

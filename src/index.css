@@ -46,6 +46,11 @@ body {
   border-left: 1px solid #e0e0e0;
 }
 
+.CollageCanvas {
+  margin: 16px;
+  border: 1px solid #aaa;
+}
+
 .ToolbarSection {
   padding-left: 4px;
 }
