@@ -849,6 +849,12 @@ function applySpriteScaling(
     sprite.id === action.spriteId
       ? {
           ...sprite,
+          x: sprite.x - (action.newWidth - sprite.width) / 2,
+          y:
+            sprite.y -
+            ((action.newWidth * sprite.image.height) / sprite.image.width -
+              sprite.width) /
+              2,
           width: action.newWidth,
         }
       : sprite
