@@ -23,7 +23,7 @@ You can perform actions using the mouse and keyboard.
 
 In general, to perform an action, hover the mouse over the sprite you want to edit, and then press the corresponding key.
 For example, to rename a sprite, hover the mouse over said sprite and then press `N`.
-However, there are a few exceptions, described in the next section.
+However, there are a few exceptions to this pattern, described in the next section.
 
 ### Exceptions
 
