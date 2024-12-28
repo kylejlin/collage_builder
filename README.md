@@ -4,6 +4,9 @@ A simple web app for making collages. You can reposition and resize images, and 
 
 ## Actions
 
+You can edit the collage by performing _actions_.
+You can perform actions using the mouse and keyboard.
+
 | **Key** | **Action**                      |
 | ------- | ------------------------------- |
 | `T`     | Translate sprite                |
