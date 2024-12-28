@@ -22,6 +22,12 @@ enum LayerChangeKind {
   MoveToBottom = "MoveToBottom",
 }
 
+enum PasteBufferMode {
+  NoOp = "NoOp",
+  Width = "Width",
+  Height = "Height",
+}
+
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
 
 type Props = object;
@@ -37,6 +43,7 @@ interface State {
   readonly redoStack: readonly Action[];
   readonly pendingTransformation: null | PendingSpriteTransformation;
   readonly isMouseOverCanvas: boolean;
+  readonly pasteBuffer: PasteBuffer;
 }
 
 interface ImageFile {
@@ -137,6 +144,11 @@ interface SpriteExportData {
   readonly height: number;
 }
 
+interface PasteBuffer {
+  readonly mode: PasteBufferMode;
+  readonly value: number;
+}
+
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
   readonly fileInputRef: React.RefObject<HTMLInputElement>;
@@ -159,6 +171,7 @@ export class App extends Component<Props, State> {
       redoStack: [],
       pendingTransformation: null,
       isMouseOverCanvas: false,
+      pasteBuffer: { mode: PasteBufferMode.NoOp, value: 0 },
     };
 
     this.canvasRef = createRef();
@@ -709,6 +722,35 @@ export class App extends Component<Props, State> {
       return;
     }
 
+    if (key.toLowerCase() === "w" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        pasteBuffer: {
+          mode: PasteBufferMode.Width,
+          value: selectedSprite.width,
+        },
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "h" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        pasteBuffer: {
+          mode: PasteBufferMode.Height,
+          value:
+            (selectedSprite.width * selectedSprite.image.height) /
+            selectedSprite.image.width,
+        },
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "v" && pendingTransformation === null) {
+      this.applyPasteBuffer(selectedSprite);
+      return;
+    }
+
     if (key.toLowerCase() === "u" && pendingTransformation === null) {
       this.setState((prevState) => ({
         ...prevState,
@@ -788,8 +830,51 @@ export class App extends Component<Props, State> {
     }
   }
 
-  todoDebugSprites(): readonly Sprite[] {
-    return getSprites(this.state);
+  applyPasteBuffer(target: Sprite): void {
+    const { pasteBuffer } = this.state;
+
+    switch (pasteBuffer.mode) {
+      case PasteBufferMode.NoOp:
+        break;
+
+      case PasteBufferMode.Width:
+        this.applyWidthPaste(target, pasteBuffer.value);
+        break;
+
+      case PasteBufferMode.Height:
+        this.applyHeightPaste(target, pasteBuffer.value);
+        break;
+
+      default:
+        typecheckedAssertNever(pasteBuffer.mode);
+    }
+  }
+
+  applyWidthPaste(target: Sprite, width: number): void {
+    this.setState((prevState) => ({
+      ...prevState,
+      actions: prevState.actions.concat([
+        {
+          kind: ActionKind.Scale,
+          spriteId: target.id,
+          newWidth: width,
+        },
+      ]),
+    }));
+  }
+
+  applyHeightPaste(target: Sprite, height: number): void {
+    const newWidth = (height * target.image.width) / target.image.height;
+    this.setState((prevState) => ({
+      ...prevState,
+      actions: prevState.actions.concat([
+        {
+          kind: ActionKind.Scale,
+          spriteId: target.id,
+          newWidth,
+        },
+      ]),
+    }));
   }
 
   onWindowMouseMove(event: MouseEvent): void {
@@ -1357,4 +1442,8 @@ function downloadJsonString(jsonString: string, fileName: string): void {
   a.click();
 
   URL.revokeObjectURL(url);
+}
+
+function typecheckedAssertNever(impossible: never): never {
+  return impossible;
 }
