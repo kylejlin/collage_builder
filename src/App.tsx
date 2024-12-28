@@ -79,7 +79,7 @@ export class App extends Component<Props, State> {
 
     return (
       <div>
-        <h1>Autocropper</h1>
+        <h1>Collage Maker</h1>
 
         <section>
           <h2>Step 1: Upload and review.</h2>
