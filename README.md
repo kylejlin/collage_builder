@@ -28,7 +28,8 @@ However, there are a few exceptions to this pattern, described in the next secti
 ### Exceptions
 
 For `T` and `S`, you need to hold down the key and move the mouse to translate or scale the sprite.
-When you release the key, the sprite will be placed at the new position or scale.
+As long as you hold down the key, the sprite will move or scale with the mouse.
+Once you release the key, the sprite will no longer move or scale with the mouse.
 
 For `Z` and `Y`, you do not need to hover over any sprite (since these are not sprite-specific commands).
 
