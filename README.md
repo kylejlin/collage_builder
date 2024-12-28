@@ -13,6 +13,9 @@ You can perform actions using the mouse and keyboard.
 | Scale sprite (about its center) | `S`                                                       |
 | Delete sprite                   | `X`                                                       |
 | Duplicate sprite                | `D`                                                       |
+| Copy width                      | `W` Read the [Details section](#details) for more info.   |
+| Copy height                     | `H` Read the [Details section](#details) for more info.   |
+| Paste                           | `V` Read the [Details section](#details) for more info.   |
 | Move sprite up                  | `U`                                                       |
 | Move sprite to top              | `I`                                                       |
 | Move sprite down                | `J`                                                       |
@@ -31,6 +34,13 @@ However, there are a few exceptions to this pattern, described in the next secti
 For `T` and `S`, you need to hold down the key and move the mouse to translate or scale the sprite.
 As long as you hold down the key, the sprite will move or scale with the mouse.
 Once you release the key, the sprite will no longer move or scale with the mouse.
+
+If you press `W`, the width of the sprite that the mouse is hovering over is saved to the _paste buffer_. The _paste mode_ is set to "width".
+
+The `H` key behaves similarly, except it saves height instead of width.
+
+When you press `V`, if the paste mode is "width", then this sets the width of the sprite that the mouse is hovering over to the value stored in the paste buffer.
+If the paste mode is "height", then this sets the height of the sprite that the mouse is hovering over to the value stored in the paste bufer.
 
 For `Z` and `Y`, you do not need to hover over any sprite (since these are not sprite-specific commands).
 
