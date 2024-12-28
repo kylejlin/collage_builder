@@ -24,6 +24,7 @@ interface State {
   readonly canvasScaleInput: string;
   readonly canvasBackgroundColorInput: string;
   readonly actions: readonly Action[];
+  readonly redoStack: readonly Action[];
   readonly pendingTransformation: null | PendingSpriteTransformation;
   readonly isMouseOverCanvas: boolean;
 }
@@ -113,6 +114,7 @@ export class App extends Component<Props, State> {
       canvasScaleInput: "0.3",
       canvasBackgroundColorInput: "transparent",
       actions: [],
+      redoStack: [],
       pendingTransformation: null,
       isMouseOverCanvas: false,
     };
@@ -414,6 +416,7 @@ export class App extends Component<Props, State> {
           kind: ActionKind.Create,
           image,
         }),
+        redoStack: [],
       };
     });
   }
@@ -544,7 +547,7 @@ export class App extends Component<Props, State> {
   onWindowKeyup(event: KeyboardEvent): void {
     const { key } = event;
 
-    const { pendingTransformation, actions } = this.state;
+    const { pendingTransformation, actions, redoStack } = this.state;
 
     if (
       (key.toLowerCase() === "t" &&
@@ -565,17 +568,38 @@ export class App extends Component<Props, State> {
           actions: prevState.actions.concat([
             finalizePendingSpriteTransformation(pendingTransformation, sprites),
           ]),
+          redoStack: [],
           pendingTransformation: null,
         };
       });
       return;
     }
 
-    if (key === "z" && actions.length > 0 && pendingTransformation === null) {
+    if (
+      key.toLowerCase() === "z" &&
+      actions.length > 0 &&
+      pendingTransformation === null
+    ) {
       this.setState((prevState) => {
         return {
           ...prevState,
           actions: prevState.actions.slice(0, -1),
+          redoStack: prevState.redoStack.concat(prevState.actions.slice(-1)),
+        };
+      });
+      return;
+    }
+
+    if (
+      key.toLowerCase() === "y" &&
+      redoStack.length > 0 &&
+      pendingTransformation === null
+    ) {
+      this.setState((prevState) => {
+        return {
+          ...prevState,
+          actions: prevState.actions.concat(prevState.redoStack.slice(-1)),
+          redoStack: prevState.redoStack.slice(0, -1),
         };
       });
       return;
