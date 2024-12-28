@@ -6,6 +6,7 @@ enum ActionKind {
   Translate = "Translate",
   Scale = "Scale",
   ReorderLayers = "ReorderLayers",
+  Rename = "Rename",
 }
 
 enum PendingSpriteTransformationKind {
@@ -49,8 +50,10 @@ interface ImageFile {
 type Action =
   | SpriteCreation
   | SpriteDeletion
-  | SpriteTransformation
-  | SpriteLayerReordering;
+  | SpriteTranslation
+  | SpriteScaling
+  | SpriteLayerReordering
+  | SpriteRenaming;
 
 interface SpriteCreation {
   readonly kind: ActionKind.Create;
@@ -61,8 +64,6 @@ interface SpriteDeletion {
   readonly kind: ActionKind.Delete;
   readonly spriteId: number;
 }
-
-type SpriteTransformation = SpriteTranslation | SpriteScaling;
 
 interface SpriteTranslation {
   readonly kind: ActionKind.Translate;
@@ -81,6 +82,12 @@ interface SpriteLayerReordering {
   readonly kind: ActionKind.ReorderLayers;
   readonly spriteId: number;
   readonly layerChangeKind: LayerChangeKind;
+}
+
+interface SpriteRenaming {
+  readonly kind: ActionKind.Rename;
+  readonly spriteId: number;
+  readonly idealNewName: string;
 }
 
 type PendingSpriteTransformation =
@@ -129,6 +136,7 @@ export class App extends Component<Props, State> {
   readonly ghostCanvas: HTMLCanvasElement;
   mouseX: number;
   mouseY: number;
+  isWindowDialogOpen: boolean;
 
   constructor(props: Props) {
     super(props);
@@ -151,6 +159,7 @@ export class App extends Component<Props, State> {
     this.ghostCanvas = document.createElement("canvas");
     this.mouseX = 0;
     this.mouseY = 0;
+    this.isWindowDialogOpen = false;
 
     this.bindMethods();
   }
@@ -457,6 +466,10 @@ export class App extends Component<Props, State> {
   }
 
   onWindowKeydown(event: KeyboardEvent): void {
+    if (this.isWindowDialogOpen) {
+      return;
+    }
+
     const { key } = event;
 
     if (
@@ -505,14 +518,14 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    const selectedSpriteId = getSelectedSpriteId(
+    const selectedSprite = getSelectedSprite(
       pointerX,
       pointerY,
       this.state,
       this.ghostCanvas
     );
 
-    if (selectedSpriteId === null) {
+    if (selectedSprite === null) {
       return;
     }
 
@@ -520,7 +533,7 @@ export class App extends Component<Props, State> {
       this.setState({
         pendingTransformation: {
           kind: PendingSpriteTransformationKind.Translate,
-          spriteId: selectedSpriteId,
+          spriteId: selectedSprite.id,
           pointerStartX: pointerX,
           pointerStartY: pointerY,
           pointerCurrentX: pointerX,
@@ -534,7 +547,7 @@ export class App extends Component<Props, State> {
       this.setState({
         pendingTransformation: {
           kind: PendingSpriteTransformationKind.Scale,
-          spriteId: selectedSpriteId,
+          spriteId: selectedSprite.id,
           pointerStartX: pointerX,
           pointerStartY: pointerY,
           pointerCurrentX: pointerX,
@@ -580,6 +593,10 @@ export class App extends Component<Props, State> {
   }
 
   onWindowKeyup(event: KeyboardEvent): void {
+    if (this.isWindowDialogOpen) {
+      return;
+    }
+
     const { key } = event;
 
     const { pendingTransformation, actions, redoStack } = this.state;
@@ -648,14 +665,14 @@ export class App extends Component<Props, State> {
 
     const [pointerX, pointerY] = pointerCoords;
 
-    const selectedSpriteId = getSelectedSpriteId(
+    const selectedSprite = getSelectedSprite(
       pointerX,
       pointerY,
       this.state,
       this.ghostCanvas
     );
 
-    if (selectedSpriteId === null) {
+    if (selectedSprite === null) {
       return;
     }
 
@@ -665,7 +682,7 @@ export class App extends Component<Props, State> {
         actions: prevState.actions.concat([
           {
             kind: ActionKind.Delete,
-            spriteId: selectedSpriteId,
+            spriteId: selectedSprite.id,
           },
         ]),
       }));
@@ -678,7 +695,7 @@ export class App extends Component<Props, State> {
         actions: prevState.actions.concat([
           {
             kind: ActionKind.ReorderLayers,
-            spriteId: selectedSpriteId,
+            spriteId: selectedSprite.id,
             layerChangeKind: LayerChangeKind.MoveUp,
           },
         ]),
@@ -692,7 +709,7 @@ export class App extends Component<Props, State> {
         actions: prevState.actions.concat([
           {
             kind: ActionKind.ReorderLayers,
-            spriteId: selectedSpriteId,
+            spriteId: selectedSprite.id,
             layerChangeKind: LayerChangeKind.MoveToTop,
           },
         ]),
@@ -706,7 +723,7 @@ export class App extends Component<Props, State> {
         actions: prevState.actions.concat([
           {
             kind: ActionKind.ReorderLayers,
-            spriteId: selectedSpriteId,
+            spriteId: selectedSprite.id,
             layerChangeKind: LayerChangeKind.MoveDown,
           },
         ]),
@@ -720,8 +737,30 @@ export class App extends Component<Props, State> {
         actions: prevState.actions.concat([
           {
             kind: ActionKind.ReorderLayers,
-            spriteId: selectedSpriteId,
+            spriteId: selectedSprite.id,
             layerChangeKind: LayerChangeKind.MoveToBottom,
+          },
+        ]),
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "n" && pendingTransformation === null) {
+      const newName = this.prompt(
+        `Enter new sprite name for ${selectedSprite.name}: `
+      );
+
+      if (newName === null || /^\s*$/.test(newName)) {
+        return;
+      }
+
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.Rename,
+            spriteId: selectedSprite.id,
+            idealNewName: newName,
           },
         ]),
       }));
@@ -777,6 +816,19 @@ export class App extends Component<Props, State> {
     const sprites = getSprites(this.state);
     const spritesJson = serializeSpritesAsJsonString(sprites);
     downloadJsonString(spritesJson, "sprites.json");
+  }
+
+  alert(message: string): void {
+    this.isWindowDialogOpen = true;
+    window.alert(message);
+    this.isWindowDialogOpen = false;
+  }
+
+  prompt(message: string): null | string {
+    this.isWindowDialogOpen = true;
+    const out = window.prompt(message);
+    this.isWindowDialogOpen = false;
+    return out;
   }
 }
 
@@ -881,6 +933,30 @@ function getUnusedId(sprites: readonly Sprite[]): number {
   return 1 + Math.max(...sprites.map((sprite) => sprite.id));
 }
 
+function getUnusedSpriteName(
+  idealName: string,
+  sprites: readonly Sprite[]
+): string {
+  const existingNames = new Set(sprites.map((sprite) => sprite.name));
+
+  if (!existingNames.has(idealName)) {
+    return idealName;
+  }
+
+  let counter = 1;
+  let candidate = idealName + " (" + String(counter) + ")";
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  while (true) {
+    if (!existingNames.has(candidate)) {
+      return candidate;
+    }
+
+    ++counter;
+    candidate = idealName + " (" + String(counter) + ")";
+  }
+}
+
 function updateCanvasSize(canvas: HTMLCanvasElement, state: State): void {
   const { canvasWidthInput, canvasHeightInput, canvasScaleInput } = state;
 
@@ -977,6 +1053,8 @@ function applyAction(
       return applySpriteScaling(action, sprites);
     case ActionKind.ReorderLayers:
       return applySpriteLayerReordering(action, sprites);
+    case ActionKind.Rename:
+      return applySpriteRenaming(action, sprites);
   }
 }
 
@@ -984,8 +1062,11 @@ function applySpriteCreation(
   action: SpriteCreation,
   sprites: readonly Sprite[]
 ): readonly Sprite[] {
+  const idealName = isImageFileName(action.image.name)
+    ? action.image.name.replace(/\.[^.]*$/, "")
+    : action.image.name;
   return sprites.concat({
-    name: action.image.name,
+    name: getUnusedSpriteName(idealName, sprites),
     id: getUnusedId(sprites),
     image: action.image,
     x: 0,
@@ -1082,6 +1163,16 @@ function applySpriteLayerReordering(
   }
 }
 
+function applySpriteRenaming(
+  action: SpriteRenaming,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  const newName = getUnusedSpriteName(action.idealNewName, sprites);
+  return sprites.map((sprite) =>
+    sprite.id === action.spriteId ? { ...sprite, name: newName } : sprite
+  );
+}
+
 function applyPendingTransformation(
   transformation: PendingSpriteTransformation,
   sprites: readonly Sprite[]
@@ -1090,12 +1181,12 @@ function applyPendingTransformation(
   return applyAction(action, sprites);
 }
 
-function getSelectedSpriteId(
+function getSelectedSprite(
   pointerX: number,
   pointerY: number,
   state: State,
   ghostCanvas: HTMLCanvasElement
-): null | number {
+): null | Sprite {
   const context = ghostCanvas.getContext("2d", { willReadFrequently: true });
 
   if (context === null) {
@@ -1135,7 +1226,7 @@ function getSelectedSpriteId(
 
     const imageData = context.getImageData(pointerX, pointerY, 1, 1);
     if (imageData.data[3] > 0) {
-      return sprite.id;
+      return sprite;
     }
   }
 
