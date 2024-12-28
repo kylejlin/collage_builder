@@ -1,5 +1,12 @@
 import { Component, createRef, ReactNode } from "react";
 
+enum SpriteAdjustmentKind {
+  Translate = "Translate",
+  Scale = "Scale",
+}
+
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
+
 type Props = object;
 
 interface State {
@@ -10,7 +17,7 @@ interface State {
   readonly canvasScaleInput: string;
   readonly canvasBackgroundColorInput: string;
   readonly sprites: readonly Sprite[];
-  readonly selectedSpriteId: null | number;
+  readonly adjustment: null | SpriteAdjustment;
 }
 
 interface ImageFile {
@@ -31,7 +38,25 @@ interface Sprite {
   readonly width: number;
 }
 
-const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
+type SpriteAdjustment = SpriteTranslation | SpriteScaling;
+
+interface SpriteTranslation {
+  readonly kind: SpriteAdjustmentKind.Translate;
+  readonly spriteId: number;
+  readonly pointerStartX: number;
+  readonly pointerStartY: number;
+  readonly pointerCurrentX: number;
+  readonly pointerCurrentY: number;
+}
+
+interface SpriteScaling {
+  readonly kind: SpriteAdjustmentKind.Scale;
+  readonly spriteId: number;
+  readonly pointerStartX: number;
+  readonly pointerStartY: number;
+  readonly pointerCurrentX: number;
+  readonly pointerCurrentY: number;
+}
 
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -48,7 +73,7 @@ export class App extends Component<Props, State> {
       canvasScaleInput: "0.5",
       canvasBackgroundColorInput: "transparent",
       sprites: [],
-      selectedSpriteId: null,
+      adjustment: null,
     };
 
     this.canvasRef = createRef();
@@ -191,7 +216,7 @@ export class App extends Component<Props, State> {
                 >
                   <button
                     onClick={() => {
-                      this.createAndSelectSpriteFromImage(imageFile);
+                      this.createSpriteFromImage(imageFile);
                     }}
                   >
                     Add
@@ -311,7 +336,7 @@ export class App extends Component<Props, State> {
     fileInput.click();
   }
 
-  createAndSelectSpriteFromImage(image: ImageFile): void {
+  createSpriteFromImage(image: ImageFile): void {
     this.setState((prevState) => {
       const newSprite: Sprite = {
         name: image.name,
@@ -324,7 +349,6 @@ export class App extends Component<Props, State> {
 
       return {
         sprites: prevState.sprites.concat(newSprite),
-        selectedSpriteId: newSprite.id,
       };
     });
   }
