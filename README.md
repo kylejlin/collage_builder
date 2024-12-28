@@ -2,24 +2,24 @@
 
 A simple web app for making collages. You can reposition and resize images, and then download all the positions and dimensions as a JSON file. Try it [here](https://kylejlin.github.io/collage_maker)!
 
-## Actions
+## User Guide
 
 You can edit the collage by performing _actions_.
 You can perform actions using the mouse and keyboard.
 
-| **Action**                      | **Key**                                                                                                                                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Translate sprite                | `T`                                                                                                                                                                                                         |
-| Scale sprite (about its center) | `S`                                                                                                                                                                                                         |
-| Delete sprite                   | `D`                                                                                                                                                                                                         |
-| Move sprite up                  | `U`                                                                                                                                                                                                         |
-| Move sprite to top              | `I`                                                                                                                                                                                                         |
-| Move sprite down                | `J`                                                                                                                                                                                                         |
-| Move sprite to bottom           | `K`                                                                                                                                                                                                         |
-| Rename sprite                   | `N`                                                                                                                                                                                                         |
-| Undo action                     | `Z`                                                                                                                                                                                                         |
-| Redo action                     | `Y`                                                                                                                                                                                                         |
-| Create sprite                   | None (click the "Add" button next to the desired source image). Note that you must upload source images beforing you can create a sprite. You can upload source images by clicking the "Upload new" images. |
+| **Action**                      | **Key**                                     |
+| ------------------------------- | ------------------------------------------- |
+| Translate sprite                | `T`                                         |
+| Scale sprite (about its center) | `S`                                         |
+| Delete sprite                   | `D`                                         |
+| Move sprite up                  | `U`                                         |
+| Move sprite to top              | `I`                                         |
+| Move sprite down                | `J`                                         |
+| Move sprite to bottom           | `K`                                         |
+| Rename sprite                   | `N`                                         |
+| Undo action                     | `Z`                                         |
+| Redo action                     | `Y`                                         |
+| Create sprite                   | None. Read the below section for more info. |
 
 To perform an action, hover the mouse over the sprite you want to edit.
 Then press the corresponding key.
@@ -29,3 +29,5 @@ For `T` and `S`, you need to hold down the key and move the mouse to translate o
 When you release the key, the sprite will be placed at the new position or scale.
 
 For `Z` and `Y`, you do not need to hover over any sprite (since these are not sprite-specific commands).
+
+To create a sprite, click the "Add" button next to the desired source image. Note that you must upload source images before you can create a sprite. You can upload source images by clicking the "Upload new" images.
