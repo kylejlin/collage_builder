@@ -98,6 +98,7 @@ interface Sprite {
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
   readonly fileInputRef: React.RefObject<HTMLInputElement>;
+  readonly ghostCanvas: HTMLCanvasElement;
   mouseX: number;
   mouseY: number;
 
@@ -118,6 +119,7 @@ export class App extends Component<Props, State> {
 
     this.canvasRef = createRef();
     this.fileInputRef = createRef();
+    this.ghostCanvas = document.createElement("canvas");
     this.mouseX = 0;
     this.mouseY = 0;
 
@@ -462,7 +464,8 @@ export class App extends Component<Props, State> {
     const selectedSpriteId = getSelectedSpriteId(
       pointerX,
       pointerY,
-      this.state
+      this.state,
+      this.ghostCanvas
     );
 
     if (selectedSpriteId === null) {
@@ -803,9 +806,52 @@ function applyPendingTransformation(
 function getSelectedSpriteId(
   pointerX: number,
   pointerY: number,
-  state: State
+  state: State,
+  ghostCanvas: HTMLCanvasElement
 ): null | number {
-  // TODO
+  const context = ghostCanvas.getContext("2d");
+
+  if (context === null) {
+    throw new Error("Failed to get 2D context from ghost canvas");
+  }
+
+  const { canvasWidthInput, canvasHeightInput } = state;
+
+  const canvasWidth = isNonNegativeIntegerString(canvasWidthInput)
+    ? Number.parseInt(canvasWidthInput)
+    : 0;
+
+  const canvasHeight = isNonNegativeIntegerString(canvasHeightInput)
+    ? Number.parseInt(canvasHeightInput)
+    : 0;
+
+  if (canvasWidth === 0 || canvasHeight === 0) {
+    return null;
+  }
+
+  ghostCanvas.width = canvasWidth;
+  ghostCanvas.height = canvasHeight;
+
+  context.reset();
+  context.clearRect(0, 0, canvasWidth, canvasHeight);
+
+  const sprites = getSprites(state);
+  for (let i = sprites.length - 1; i >= 0; i--) {
+    const sprite = sprites[i];
+    context.drawImage(
+      sprite.image.imageElement,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      (sprite.width * sprite.image.height) / sprite.image.width
+    );
+
+    const imageData = context.getImageData(pointerX, pointerY, 1, 1);
+    if (imageData.data[3] > 0) {
+      return sprite.id;
+    }
+  }
+
   return null;
 }
 
