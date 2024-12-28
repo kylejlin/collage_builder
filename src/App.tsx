@@ -3,6 +3,7 @@ import { Component, createRef, ReactNode } from "react";
 enum ActionKind {
   Create = "Create",
   Delete = "Delete",
+  Duplicate = "Duplicate",
   Translate = "Translate",
   Scale = "Scale",
   ReorderLayers = "ReorderLayers",
@@ -50,6 +51,7 @@ interface ImageFile {
 type Action =
   | SpriteCreation
   | SpriteDeletion
+  | SpriteDuplication
   | SpriteTranslation
   | SpriteScaling
   | SpriteLayerReordering
@@ -62,6 +64,11 @@ interface SpriteCreation {
 
 interface SpriteDeletion {
   readonly kind: ActionKind.Delete;
+  readonly spriteId: number;
+}
+
+interface SpriteDuplication {
+  readonly kind: ActionKind.Duplicate;
   readonly spriteId: number;
 }
 
@@ -676,12 +683,25 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    if (key.toLowerCase() === "d" && pendingTransformation === null) {
+    if (key.toLowerCase() === "x" && pendingTransformation === null) {
       this.setState((prevState) => ({
         ...prevState,
         actions: prevState.actions.concat([
           {
             kind: ActionKind.Delete,
+            spriteId: selectedSprite.id,
+          },
+        ]),
+      }));
+      return;
+    }
+
+    if (key.toLowerCase() === "d" && pendingTransformation === null) {
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          {
+            kind: ActionKind.Duplicate,
             spriteId: selectedSprite.id,
           },
         ]),
@@ -1047,6 +1067,8 @@ function applyAction(
       return applySpriteCreation(action, sprites);
     case ActionKind.Delete:
       return applySpriteDeletion(action, sprites);
+    case ActionKind.Duplicate:
+      return applySpriteDuplication(action, sprites);
     case ActionKind.Translate:
       return applySpriteTranslation(action, sprites);
     case ActionKind.Scale:
@@ -1080,6 +1102,28 @@ function applySpriteDeletion(
   sprites: readonly Sprite[]
 ): readonly Sprite[] {
   return sprites.filter((sprite) => sprite.id !== action.spriteId);
+}
+
+function applySpriteDuplication(
+  action: SpriteDuplication,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  const original = sprites.find((s) => s.id === action.spriteId);
+
+  if (original === undefined) {
+    return sprites;
+  }
+
+  const duplicate: Sprite = {
+    name: getUnusedSpriteName(original.name, sprites),
+    id: getUnusedId(sprites),
+    image: original.image,
+    x: original.x,
+    y: original.y,
+    width: original.width,
+  };
+
+  return sprites.concat([duplicate]);
 }
 
 function applySpriteTranslation(
