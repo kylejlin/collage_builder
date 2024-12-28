@@ -1,11 +1,9 @@
 import { Component, ReactNode } from "react";
-import JSZip from "jszip";
 
 type Props = object;
 
 interface State {
   readonly isProcessingFile: boolean;
-  readonly uploadedFileName: string;
   readonly imageFiles: readonly ImageFile[];
   readonly sprites: readonly Sprite[];
 }
@@ -35,7 +33,6 @@ export class App extends Component<Props, State> {
 
     this.state = {
       isProcessingFile: false,
-      uploadedFileName: "",
       imageFiles: [],
       sprites: [],
     };
@@ -77,82 +74,43 @@ export class App extends Component<Props, State> {
   onFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
     const files = event.target.files;
 
-    if (files === null || files.length === 0) {
+    if (files === null) {
       return;
     }
 
-    const file = files[0];
+    this.setState(
+      {
+        isProcessingFile: true,
+      },
+      () => {
+        void Promise.all(
+          Array.from(files).map((file) => {
+            if (!isImageFileName(file.name)) {
+              const errorMessage = "Invalid file type. File name: " + file.name;
+              window.alert(errorMessage);
+              throw new Error(errorMessage);
+            }
 
-    if (isZipFileName(file.name)) {
-      this.setState(
-        {
-          isProcessingFile: true,
-        },
-        () => {
-          this.onZipFileUpload(file);
-        }
-      );
-      return;
-    }
-
-    if (isImageFileName(file.name)) {
-      this.setState(
-        {
-          isProcessingFile: true,
-        },
-        () => {
-          this.onImageFileUpload(file);
-        }
-      );
-      return;
-    }
-
-    window.alert("Invalid file type.");
-  }
-
-  onZipFileUpload(file: File): void {
-    void JSZip.loadAsync(file)
-      .then(getImageEntries)
-      .then((imageEntries) =>
-        Promise.all(imageEntries.map(loadImageFileFromZipEntry))
-      )
-      .then((unsortedImageFiles) => {
-        const imageFiles = unsortedImageFiles.sort((a, b) =>
-          compareStrings(a.name, b.name)
-        );
-        this.setState({
-          isProcessingFile: false,
-          uploadedFileName: file.name,
-          imageFiles,
+            return file
+              .arrayBuffer()
+              .then((buffer) =>
+                loadImageFileFromArrayBuffer(buffer, file.name)
+              );
+          })
+        ).then((newImageFiles) => {
+          this.setState((prevState) => {
+            const combinedImageFiles = prevState.imageFiles
+              .concat(newImageFiles)
+              .sort((a, b) => compareStrings(a.name, b.name));
+            return {
+              isProcessingFile: false,
+              imageFiles: combinedImageFiles,
+            };
+          });
         });
-      });
+      }
+    );
   }
-
-  onImageFileUpload(file: File): void {
-    void file
-      .arrayBuffer()
-      .then((buffer) => loadImageFileFromArrayBuffer(buffer, file.name))
-      .then((imageFile) => {
-        this.setState({
-          isProcessingFile: false,
-          uploadedFileName: file.name,
-          imageFiles: [imageFile],
-        });
-      });
-  }
-}
-
-function isZipFileName(name: string): boolean {
-  const lowerCaseName = name.toLowerCase();
-
-  if (
-    lowerCaseName === "" ||
-    lowerCaseName.split(/\/|\\/).slice(-1)[0].startsWith(".")
-  ) {
-    return false;
-  }
-
-  return lowerCaseName.endsWith(".zip");
 }
 
 function isImageFileName(name: string): boolean {
@@ -168,32 +126,6 @@ function isImageFileName(name: string): boolean {
   return IMAGE_EXTENSIONS.some((extension) =>
     lowerCaseName.endsWith(extension)
   );
-}
-
-function getImageEntries(zip: JSZip): readonly JSZip.JSZipObject[] {
-  const out: JSZip.JSZipObject[] = [];
-
-  zip.forEach((_, zipEntry) => {
-    if (zipEntry.dir) {
-      return;
-    }
-
-    if (!isImageFileName(zipEntry.name)) {
-      return;
-    }
-
-    out.push(zipEntry);
-  });
-
-  return out.slice();
-}
-
-function loadImageFileFromZipEntry(
-  zipEntry: JSZip.JSZipObject
-): Promise<ImageFile> {
-  return zipEntry
-    .async("arraybuffer")
-    .then((buffer) => loadImageFileFromArrayBuffer(buffer, zipEntry.name));
 }
 
 function loadImageFileFromArrayBuffer(
