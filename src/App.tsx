@@ -110,7 +110,7 @@ export class App extends Component<Props, State> {
       imageFiles: [],
       canvasWidthInput: "1170",
       canvasHeightInput: "2532",
-      canvasScaleInput: "0.5",
+      canvasScaleInput: "0.3",
       canvasBackgroundColorInput: "transparent",
       actions: [],
       pendingTransformation: null,
@@ -129,6 +129,9 @@ export class App extends Component<Props, State> {
   componentDidMount(): void {
     this.updateCanvas();
     this.addEventListeners();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    (window as any).app = this;
   }
 
   componentWillUnmount(): void {
@@ -548,21 +551,36 @@ export class App extends Component<Props, State> {
         pendingTransformation !== null &&
         pendingTransformation.kind === PendingSpriteTransformationKind.Scale)
     ) {
-      console.log("up 0");
+      console.log(
+        "up 0. pendingTransformation.finalized",
+        finalizePendingSpriteTransformation(
+          pendingTransformation,
+          getSprites(this.state)
+        ),
+        "oldState",
+        { ...this.state }
+      );
       this.setState((prevState) => {
-        const sprites = getSprites(prevState);
+        const sprites = getSprites({
+          ...prevState,
+          pendingTransformation: null,
+        });
         return {
           ...prevState,
           actions: prevState.actions.concat([
             finalizePendingSpriteTransformation(pendingTransformation, sprites),
           ]),
+          pendingTransformation: null,
         };
       });
     }
   }
 
+  todoDebugSprites(): readonly Sprite[] {
+    return getSprites(this.state);
+  }
+
   onWindowMouseMove(event: MouseEvent): void {
-    console.log("move 0");
     this.mouseX = event.clientX;
     this.mouseY = event.clientY;
 
@@ -572,15 +590,11 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    console.log("move 1");
-
     const [pointerX, pointerY] = pointerCoords;
 
     this.setState((prevState) => {
       const { pendingTransformation } = prevState;
-      if (pendingTransformation !== null) {
-        console.log("updating", pendingTransformation);
-      }
+      console.log("pointer updated to", pointerX, pointerY);
       return {
         ...prevState,
         pendingTransformation:
@@ -729,10 +743,8 @@ function updateCanvasSize(canvas: HTMLCanvasElement, state: State): void {
     ? Number.parseFloat(canvasScaleInput)
     : 1;
 
-  canvas.style.width =
-    String((unscaledCanvasWidth * scale) / devicePixelRatio) + "px";
-  canvas.style.height =
-    String((unscaledCanvasHeight * scale) / devicePixelRatio) + "px";
+  canvas.style.width = String(unscaledCanvasWidth * scale) + "px";
+  canvas.style.height = String(unscaledCanvasHeight * scale) + "px";
 }
 
 function updateCanvasBackgroundColor(
@@ -863,7 +875,6 @@ function applyPendingTransformation(
   sprites: readonly Sprite[]
 ): readonly Sprite[] {
   const action = finalizePendingSpriteTransformation(transformation, sprites);
-  console.log("finalized pending action", action);
   return applyAction(action, sprites);
 }
 
@@ -938,6 +949,17 @@ function finalizePendingSpriteTranslation(
   const oldSprite = sprites.find((s) => s.id === transformation.spriteId);
   const oldX = oldSprite === undefined ? 0 : oldSprite.x;
   const oldY = oldSprite === undefined ? 0 : oldSprite.y;
+
+  console.log(
+    "dx",
+    transformation.pointerCurrentX - transformation.pointerStartX,
+    "currentX::startX",
+    [transformation.pointerCurrentX, transformation.pointerStartX],
+    "newX",
+    oldX + transformation.pointerCurrentX - transformation.pointerStartX,
+    "oldX",
+    oldX
+  );
 
   return {
     kind: ActionKind.Translate,
