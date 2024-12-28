@@ -5,6 +5,9 @@ type Props = object;
 interface State {
   readonly isProcessingFile: boolean;
   readonly imageFiles: readonly ImageFile[];
+  readonly canvasWidthInput: string;
+  readonly canvasHeightInput: string;
+  readonly canvasBackgroundColorInput: string;
   readonly sprites: readonly Sprite[];
 }
 
@@ -34,6 +37,9 @@ export class App extends Component<Props, State> {
     this.state = {
       isProcessingFile: false,
       imageFiles: [],
+      canvasWidthInput: "2532",
+      canvasHeightInput: "1170",
+      canvasBackgroundColorInput: "transparent",
       sprites: [],
     };
 
@@ -42,10 +48,20 @@ export class App extends Component<Props, State> {
 
   bindMethods(): void {
     this.onFileInputChange = this.onFileInputChange.bind(this);
+    this.onCanvasWidthInputChange = this.onCanvasWidthInputChange.bind(this);
+    this.onCanvasHeightInputChange = this.onCanvasHeightInputChange.bind(this);
+    this.onCanvasBackgroundColorInputChange =
+      this.onCanvasBackgroundColorInputChange.bind(this);
   }
 
   render(): ReactNode {
-    const { isProcessingFile, imageFiles: originalImageFiles } = this.state;
+    const {
+      isProcessingFile,
+      imageFiles,
+      canvasWidthInput,
+      canvasHeightInput,
+      canvasBackgroundColorInput,
+    } = this.state;
 
     return (
       <div>
@@ -53,10 +69,52 @@ export class App extends Component<Props, State> {
           <canvas className="CollageCanvas"></canvas>
         </div>
         <div className="Toolbar">
+          <div className="Toolbar__Settings">
+            <label className="Toolbar__TextSetting">
+              Width:{" "}
+              <input
+                className={
+                  isNonNegativeIntegerString(canvasWidthInput)
+                    ? ""
+                    : "Input--invalid"
+                }
+                type="text"
+                value={canvasWidthInput}
+                onChange={this.onCanvasWidthInputChange}
+              />
+            </label>
+            <label className="Toolbar__TextSetting">
+              Height:{" "}
+              <input
+                className={
+                  isNonNegativeIntegerString(canvasHeightInput)
+                    ? ""
+                    : "Input--invalid"
+                }
+                type="text"
+                value={canvasHeightInput}
+                onChange={this.onCanvasHeightInputChange}
+              />
+            </label>
+            <label className="Toolbar__TextSetting">
+              Background color (hex):{" "}
+              <input
+                className={
+                  isCanvasBackgroundColorValid(canvasBackgroundColorInput)
+                    ? ""
+                    : "Input--invalid"
+                }
+                type="text"
+                value={canvasBackgroundColorInput}
+                placeholder="#ffffff"
+                onChange={this.onCanvasBackgroundColorInputChange}
+              />
+            </label>
+          </div>
           <div className="Toolbar__Upload">
             {isProcessingFile ? (
               <p>Processing file...</p>
-            ) : originalImageFiles.length === 0 ? (
+            ) : imageFiles.length === 0 ? (
               <>
                 <input
                   type="file"
@@ -110,6 +168,26 @@ export class App extends Component<Props, State> {
         });
       }
     );
+  }
+
+  onCanvasWidthInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    this.setState({
+      canvasWidthInput: event.target.value,
+    });
+  }
+
+  onCanvasHeightInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    this.setState({
+      canvasHeightInput: event.target.value,
+    });
+  }
+
+  onCanvasBackgroundColorInputChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ): void {
+    this.setState({
+      canvasBackgroundColorInput: event.target.value,
+    });
   }
 }
 
@@ -195,4 +273,14 @@ function compareStrings(a: string, b: string): number {
   }
 
   return 0;
+}
+
+function isNonNegativeIntegerString(value: string): boolean {
+  return /^\d+$/.test(value);
+}
+
+function isCanvasBackgroundColorValid(value: string): boolean {
+  return /^(?:(?:transparent)|(?:\s*)|(?:#?[a-f\d]{6}))$/.test(
+    value.toLowerCase()
+  );
 }

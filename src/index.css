@@ -21,3 +21,14 @@ body {
   background-color: #f0f0f0;
   border-left: 1px solid #e0e0e0;
 }
+
+.Toolbar__TextSetting {
+  display: block;
+  margin: 4px;
+}
+
+.Input--invalid {
+  border-color: red;
+  outline-color: red;
+  color: red;
+}
