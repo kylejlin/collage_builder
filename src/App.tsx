@@ -705,6 +705,7 @@ export class App extends Component<Props, State> {
             spriteId: selectedSprite.id,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -718,6 +719,7 @@ export class App extends Component<Props, State> {
             spriteId: selectedSprite.id,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -761,6 +763,7 @@ export class App extends Component<Props, State> {
             layerChangeKind: LayerChangeKind.MoveUp,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -775,6 +778,7 @@ export class App extends Component<Props, State> {
             layerChangeKind: LayerChangeKind.MoveToTop,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -789,6 +793,7 @@ export class App extends Component<Props, State> {
             layerChangeKind: LayerChangeKind.MoveDown,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -803,6 +808,7 @@ export class App extends Component<Props, State> {
             layerChangeKind: LayerChangeKind.MoveToBottom,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -825,6 +831,7 @@ export class App extends Component<Props, State> {
             idealNewName: newName,
           },
         ]),
+        redoStack: [],
       }));
       return;
     }
@@ -860,6 +867,7 @@ export class App extends Component<Props, State> {
           newWidth: width,
         },
       ]),
+      redoStack: [],
     }));
   }
 
@@ -874,6 +882,7 @@ export class App extends Component<Props, State> {
           newWidth,
         },
       ]),
+      redoStack: [],
     }));
   }
 
