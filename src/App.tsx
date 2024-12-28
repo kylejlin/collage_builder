@@ -544,7 +544,7 @@ export class App extends Component<Props, State> {
   onWindowKeyup(event: KeyboardEvent): void {
     const { key } = event;
 
-    const { pendingTransformation } = this.state;
+    const { pendingTransformation, actions } = this.state;
 
     if (
       (key.toLowerCase() === "t" &&
@@ -568,6 +568,17 @@ export class App extends Component<Props, State> {
           pendingTransformation: null,
         };
       });
+      return;
+    }
+
+    if (key === "z" && actions.length > 0 && pendingTransformation === null) {
+      this.setState((prevState) => {
+        return {
+          ...prevState,
+          actions: prevState.actions.slice(0, -1),
+        };
+      });
+      return;
     }
   }
 
