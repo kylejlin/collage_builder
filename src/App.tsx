@@ -428,8 +428,15 @@ export class App extends Component<Props, State> {
       return;
     }
 
-    const { canvasWidthInput, canvasHeightInput, canvasScaleInput } =
-      this.state;
+    const pointerCoords = this.getPointerCoords();
+
+    if (pointerCoords === null) {
+      return;
+    }
+
+    const [pointerX, pointerY] = pointerCoords;
+
+    const { canvasWidthInput, canvasHeightInput } = this.state;
 
     const canvasWidth = isNonNegativeIntegerString(canvasWidthInput)
       ? Number.parseInt(canvasWidthInput)
@@ -439,19 +446,6 @@ export class App extends Component<Props, State> {
       ? Number.parseInt(canvasHeightInput)
       : 0;
 
-    if (canvasWidth === 0 || canvasHeight === 0) {
-      return;
-    }
-
-    const canvasScale = isNonNegativeRealString(canvasScaleInput)
-      ? Number.parseFloat(canvasScaleInput)
-      : 1;
-
-    const { mouseX, mouseY } = this;
-    const rect = canvas.getBoundingClientRect();
-    const pointerX = (mouseX - rect.left) / canvasScale;
-    const pointerY = (mouseY - rect.top) / canvasScale;
-
     if (
       pointerX < 0 ||
       pointerX > canvasWidth ||
@@ -460,6 +454,8 @@ export class App extends Component<Props, State> {
     ) {
       return;
     }
+
+    console.log("down 2");
 
     const selectedSpriteId = getSelectedSpriteId(
       pointerX,
@@ -472,7 +468,10 @@ export class App extends Component<Props, State> {
       return;
     }
 
+    console.log("down 1");
+
     if (key === "t") {
+      console.log("down 0");
       this.setState({
         pendingTransformation: {
           kind: PendingSpriteTransformationKind.Translate,
@@ -501,6 +500,40 @@ export class App extends Component<Props, State> {
     }
   }
 
+  getPointerCoords(): null | readonly [number, number] {
+    const canvas = this.canvasRef.current;
+
+    if (canvas === null) {
+      return null;
+    }
+
+    const { canvasWidthInput, canvasHeightInput, canvasScaleInput } =
+      this.state;
+
+    const canvasWidth = isNonNegativeIntegerString(canvasWidthInput)
+      ? Number.parseInt(canvasWidthInput)
+      : 0;
+
+    const canvasHeight = isNonNegativeIntegerString(canvasHeightInput)
+      ? Number.parseInt(canvasHeightInput)
+      : 0;
+
+    if (canvasWidth === 0 || canvasHeight === 0) {
+      return null;
+    }
+
+    const canvasScale = isNonNegativeRealString(canvasScaleInput)
+      ? Number.parseFloat(canvasScaleInput)
+      : 1;
+
+    const { mouseX, mouseY } = this;
+    const rect = canvas.getBoundingClientRect();
+    const pointerX = (mouseX - rect.left) / canvasScale;
+    const pointerY = (mouseY - rect.top) / canvasScale;
+
+    return [pointerX, pointerY];
+  }
+
   onWindowKeyup(event: KeyboardEvent): void {
     const { key } = event;
 
@@ -515,6 +548,7 @@ export class App extends Component<Props, State> {
         pendingTransformation !== null &&
         pendingTransformation.kind === PendingSpriteTransformationKind.Scale)
     ) {
+      console.log("up 0");
       this.setState((prevState) => {
         const sprites = getSprites(prevState);
         return {
@@ -528,8 +562,37 @@ export class App extends Component<Props, State> {
   }
 
   onWindowMouseMove(event: MouseEvent): void {
+    console.log("move 0");
     this.mouseX = event.clientX;
     this.mouseY = event.clientY;
+
+    const pointerCoords = this.getPointerCoords();
+
+    if (pointerCoords === null) {
+      return;
+    }
+
+    console.log("move 1");
+
+    const [pointerX, pointerY] = pointerCoords;
+
+    this.setState((prevState) => {
+      const { pendingTransformation } = prevState;
+      if (pendingTransformation !== null) {
+        console.log("updating", pendingTransformation);
+      }
+      return {
+        ...prevState,
+        pendingTransformation:
+          pendingTransformation === null
+            ? null
+            : {
+                ...pendingTransformation,
+                pointerCurrentX: pointerX,
+                pointerCurrentY: pointerY,
+              },
+      };
+    });
   }
 
   onCanvasMouseEnter(): void {
@@ -800,6 +863,7 @@ function applyPendingTransformation(
   sprites: readonly Sprite[]
 ): readonly Sprite[] {
   const action = finalizePendingSpriteTransformation(transformation, sprites);
+  console.log("finalized pending action", action);
   return applyAction(action, sprites);
 }
 
@@ -809,7 +873,7 @@ function getSelectedSpriteId(
   state: State,
   ghostCanvas: HTMLCanvasElement
 ): null | number {
-  const context = ghostCanvas.getContext("2d");
+  const context = ghostCanvas.getContext("2d", { willReadFrequently: true });
 
   if (context === null) {
     throw new Error("Failed to get 2D context from ghost canvas");
