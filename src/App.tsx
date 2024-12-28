@@ -7,7 +7,7 @@ enum ActionKind {
   Scale = "Scale",
 }
 
-enum PendingSpriteAdjustmentKind {
+enum PendingSpriteTransformationKind {
   Translate = "Translate",
   Scale = "Scale",
 }
@@ -24,7 +24,7 @@ interface State {
   readonly canvasScaleInput: string;
   readonly canvasBackgroundColorInput: string;
   readonly actions: readonly Action[];
-  readonly pendingAdjustment: null | PendingSpriteAdjustment;
+  readonly pendingTransformation: null | PendingSpriteTransformation;
 }
 
 interface ImageFile {
@@ -36,7 +36,7 @@ interface ImageFile {
   readonly imageElement: HTMLImageElement;
 }
 
-type Action = SpriteCreation | SpriteDeletion | SpriteAdjustment;
+type Action = SpriteCreation | SpriteDeletion | SpriteTransformation;
 
 interface SpriteCreation {
   readonly kind: ActionKind.Create;
@@ -48,7 +48,7 @@ interface SpriteDeletion {
   readonly spriteId: number;
 }
 
-type SpriteAdjustment = SpriteTranslation | SpriteScaling;
+type SpriteTransformation = SpriteTranslation | SpriteScaling;
 
 interface SpriteTranslation {
   readonly kind: ActionKind.Translate;
@@ -63,10 +63,12 @@ interface SpriteScaling {
   readonly newWidth: number;
 }
 
-type PendingSpriteAdjustment = PendingSpriteTranslation | PendingSpriteScaling;
+type PendingSpriteTransformation =
+  | PendingSpriteTranslation
+  | PendingSpriteScaling;
 
 interface PendingSpriteTranslation {
-  readonly kind: PendingSpriteAdjustmentKind.Translate;
+  readonly kind: PendingSpriteTransformationKind.Translate;
   readonly spriteId: number;
   readonly pointerStartX: number;
   readonly pointerStartY: number;
@@ -75,7 +77,7 @@ interface PendingSpriteTranslation {
 }
 
 interface PendingSpriteScaling {
-  readonly kind: PendingSpriteAdjustmentKind.Scale;
+  readonly kind: PendingSpriteTransformationKind.Scale;
   readonly spriteId: number;
   readonly pointerStartX: number;
   readonly pointerStartY: number;
@@ -107,7 +109,7 @@ export class App extends Component<Props, State> {
       canvasScaleInput: "0.5",
       canvasBackgroundColorInput: "transparent",
       actions: [],
-      pendingAdjustment: null,
+      pendingTransformation: null,
     };
 
     this.canvasRef = createRef();
@@ -551,13 +553,17 @@ function paintCanvas(canvas: HTMLCanvasElement, state: State): void {
 }
 
 function getSprites(state: State): readonly Sprite[] {
+  const { actions, pendingTransformation } = state;
+
   let sprites: readonly Sprite[] = [];
 
-  for (const action of state.actions) {
+  for (const action of actions) {
     sprites = applyAction(action, sprites);
   }
 
-  // TODO: Handle pending action.
+  if (pendingTransformation !== null) {
+    sprites = applyPendingTransformation(pendingTransformation, sprites);
+  }
 
   return sprites;
 }
@@ -626,4 +632,67 @@ function applySpriteScaling(
         }
       : sprite
   );
+}
+
+function applyPendingTransformation(
+  transformation: PendingSpriteTransformation,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  switch (transformation.kind) {
+    case PendingSpriteTransformationKind.Translate:
+      return applyPendingSpriteTranslation(transformation, sprites);
+    case PendingSpriteTransformationKind.Scale:
+      return applyPendingSpriteScaling(transformation, sprites);
+  }
+}
+
+function applyPendingSpriteTranslation(
+  transformation: PendingSpriteTranslation,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  return sprites.map((sprite) => {
+    if (sprite.id !== transformation.spriteId) {
+      return sprite;
+    }
+
+    return {
+      ...sprite,
+      x:
+        sprite.x +
+        transformation.pointerCurrentX -
+        transformation.pointerStartX,
+      y:
+        sprite.y +
+        transformation.pointerCurrentY -
+        transformation.pointerStartY,
+    };
+  });
+}
+
+function applyPendingSpriteScaling(
+  transformation: PendingSpriteScaling,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  return sprites.map((sprite) => {
+    if (sprite.id !== transformation.spriteId) {
+      return sprite;
+    }
+
+    const centerX = sprite.x + sprite.width / 2;
+    const centerY =
+      sprite.y + (sprite.width * sprite.image.height) / sprite.image.width / 2;
+    const startPointerDistance = Math.hypot(
+      transformation.pointerStartX - centerX,
+      transformation.pointerStartY - centerY
+    );
+    const currentPointerDistance = Math.hypot(
+      transformation.pointerCurrentX - centerX,
+      transformation.pointerCurrentY - centerY
+    );
+
+    return {
+      ...sprite,
+      width: (sprite.width * currentPointerDistance) / startPointerDistance,
+    };
+  });
 }
