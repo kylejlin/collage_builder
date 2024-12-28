@@ -653,10 +653,15 @@ export class App extends Component<Props, State> {
       pendingTransformation === null
     ) {
       this.setState((prevState) => {
+        const meaningfulPrevStateActions = getMeaningfulActions(
+          prevState.actions
+        );
         return {
           ...prevState,
-          actions: prevState.actions.slice(0, -1),
-          redoStack: prevState.redoStack.concat(prevState.actions.slice(-1)),
+          actions: meaningfulPrevStateActions.slice(0, -1),
+          redoStack: prevState.redoStack.concat(
+            meaningfulPrevStateActions.slice(-1)
+          ),
         };
       });
       return;
@@ -1455,4 +1460,43 @@ function downloadJsonString(jsonString: string, fileName: string): void {
 
 function typecheckedAssertNever(impossible: never): never {
   return impossible;
+}
+
+/**
+ * Returns the original array except with all the no-op (idempotent) actions removed.
+ */
+function getMeaningfulActions(actions: readonly Action[]): readonly Action[] {
+  let sprites: readonly Sprite[] = [];
+  const out: Action[] = [];
+
+  for (const action of actions) {
+    const newSprites = applyAction(action, sprites);
+
+    if (!areSpriteArraysEqual(sprites, newSprites)) {
+      out.push(action);
+      sprites = newSprites;
+    }
+  }
+
+  return out;
+}
+
+function areSpriteArraysEqual(
+  a: readonly Sprite[],
+  b: readonly Sprite[]
+): boolean {
+  return (
+    a.length === b.length && a.every((aItem, i) => areSpritesEqual(aItem, b[i]))
+  );
+}
+
+function areSpritesEqual(a: Sprite, b: Sprite): boolean {
+  return (
+    a.name === b.name &&
+    a.id === b.id &&
+    a.image === b.image &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.width === b.width
+  );
 }
