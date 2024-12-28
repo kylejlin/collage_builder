@@ -421,6 +421,15 @@ export class App extends Component<Props, State> {
   onWindowKeydown(event: KeyboardEvent): void {
     const { key } = event;
 
+    if (
+      key.toLowerCase() === "escape" &&
+      this.state.pendingTransformation !== null
+    ) {
+      this.setState({
+        pendingTransformation: null,
+      });
+    }
+
     const canvas = this.canvasRef.current;
 
     if (
