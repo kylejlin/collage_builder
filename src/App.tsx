@@ -1,4 +1,4 @@
-import { Component, ReactNode } from "react";
+import { Component, createRef, ReactNode } from "react";
 
 type Props = object;
 
@@ -31,19 +31,29 @@ interface Sprite {
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
 
 export class App extends Component<Props, State> {
+  readonly canvasRef: React.RefObject<HTMLCanvasElement>;
+  readonly fileInputRef: React.RefObject<HTMLInputElement>;
+
   constructor(props: Props) {
     super(props);
 
     this.state = {
       isProcessingFile: false,
       imageFiles: [],
-      canvasWidthInput: "2532",
-      canvasHeightInput: "1170",
+      canvasWidthInput: "1170",
+      canvasHeightInput: "2532",
       canvasBackgroundColorInput: "transparent",
       sprites: [],
     };
 
+    this.canvasRef = createRef();
+    this.fileInputRef = createRef();
+
     this.bindMethods();
+  }
+
+  componentDidMount(): void {
+    this.updateCanvas();
   }
 
   bindMethods(): void {
@@ -52,6 +62,34 @@ export class App extends Component<Props, State> {
     this.onCanvasHeightInputChange = this.onCanvasHeightInputChange.bind(this);
     this.onCanvasBackgroundColorInputChange =
       this.onCanvasBackgroundColorInputChange.bind(this);
+    this.onUploadButtonClick = this.onUploadButtonClick.bind(this);
+  }
+
+  override setState<K extends keyof State>(
+    state:
+      | ((
+          prevState: Readonly<State>,
+          props: Readonly<Props>
+        ) => Pick<State, K> | State | null)
+      | (Pick<State, K> | State | null),
+    callback?: () => void
+  ): void;
+  override setState<K extends keyof State>(
+    state:
+      | ((
+          prevState: Readonly<State>,
+          props: Readonly<Props>
+        ) => Pick<State, K> | State | null)
+      | (Pick<State, K> | State | null),
+    callback?: () => void
+  ): ReturnType<App["setState"]> {
+    super.setState(state, (): void => {
+      this.updateCanvas();
+
+      if (typeof callback === "function") {
+        callback();
+      }
+    });
   }
 
   render(): ReactNode {
@@ -66,10 +104,19 @@ export class App extends Component<Props, State> {
     return (
       <div>
         <div className="Collage">
-          <canvas className="CollageCanvas"></canvas>
+          <canvas
+            className={
+              "CollageCanvas" +
+              (isCanvasBackgroundColorOpaque(canvasBackgroundColorInput)
+                ? ""
+                : " CheckerboardBackground")
+            }
+            ref={this.canvasRef}
+          ></canvas>
         </div>
         <div className="Toolbar">
-          <div className="Toolbar__Settings">
+          <div className="ToolbarSection Toolbar__Settings">
+            <h2 className="SectionLabel">Canvas</h2>
             <label className="Toolbar__TextSetting">
               Width:{" "}
               <input
@@ -111,22 +158,67 @@ export class App extends Component<Props, State> {
               />
             </label>
           </div>
-          <div className="Toolbar__Upload">
-            {isProcessingFile ? (
-              <p>Processing file...</p>
-            ) : imageFiles.length === 0 ? (
-              <>
-                <input
-                  type="file"
-                  accept={[".zip"].concat(IMAGE_EXTENSIONS).join(",")}
-                  onChange={this.onFileInputChange}
-                />
-              </>
-            ) : null}
+          <div className="ToolbarSection ImageLibrary">
+            <h2 className="SectionLabel">Images</h2>
+            <ul className="ImageLibrary__ImageList">
+              {imageFiles.map((imageFile, index) => (
+                <li
+                  key={String(index) + ":" + imageFile.name}
+                  className="ImageLibrary__ImageListItem"
+                >
+                  <button>Add</button> {imageFile.name}
+                </li>
+              ))}
+            </ul>
+            <div className="Toolbar__Upload">
+              <input
+                className="HiddenWithNegativeZIndex"
+                type="file"
+                accept={[".zip"].concat(IMAGE_EXTENSIONS).join(",")}
+                multiple
+                onChange={this.onFileInputChange}
+                ref={this.fileInputRef}
+              />
+
+              {isProcessingFile ? (
+                <p>Processing file...</p>
+              ) : (
+                <button onClick={this.onUploadButtonClick}>Upload new</button>
+              )}
+            </div>
           </div>
         </div>
       </div>
     );
+  }
+
+  updateCanvas(): void {
+    const canvas = this.canvasRef.current;
+
+    if (canvas === null) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (context === null) {
+      throw new Error("Failed to get 2D context for canvas");
+    }
+
+    const { canvasWidthInput, canvasHeightInput } = this.state;
+
+    const unscaledCanvasWidth = isNonNegativeIntegerString(canvasWidthInput)
+      ? Number.parseInt(canvasWidthInput)
+      : 0;
+
+    const unscaledCanvasHeight = isNonNegativeIntegerString(canvasHeightInput)
+      ? Number.parseInt(canvasHeightInput)
+      : 0;
+
+    const { devicePixelRatio } = window;
+
+    canvas.width = unscaledCanvasWidth * devicePixelRatio;
+    canvas.height = unscaledCanvasHeight * devicePixelRatio;
   }
 
   onFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
@@ -188,6 +280,16 @@ export class App extends Component<Props, State> {
     this.setState({
       canvasBackgroundColorInput: event.target.value,
     });
+  }
+
+  onUploadButtonClick(): void {
+    const fileInput = this.fileInputRef.current;
+
+    if (fileInput === null) {
+      return;
+    }
+
+    fileInput.click();
   }
 }
 
@@ -283,4 +385,8 @@ function isCanvasBackgroundColorValid(value: string): boolean {
   return /^(?:(?:transparent)|(?:\s*)|(?:#?[a-f\d]{6}))$/.test(
     value.toLowerCase()
   );
+}
+
+function isCanvasBackgroundColorOpaque(value: string): boolean {
+  return /^#?[a-f\d]{6}$/.test(value.toLowerCase());
 }

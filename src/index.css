@@ -4,12 +4,35 @@ body {
   --toolbar-width: 256px;
 }
 
+.Input--invalid {
+  border-color: red;
+  outline-color: red;
+  color: red;
+}
+
+.HiddenWithNegativeZIndex {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+}
+
+.CheckerboardBackground {
+  /* Checkerboard pattern from https://stackoverflow.com/a/35362074/7215455 */
+  background-image: linear-gradient(45deg, #808080 25%, transparent 25%),
+    linear-gradient(-45deg, #808080 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #808080 75%),
+    linear-gradient(-45deg, transparent 75%, #808080 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
 .Collage {
   position: absolute;
   top: 0;
   left: 0;
   width: calc(100vw - var(--toolbar-width));
   height: 100vh;
+  overflow: auto;
 }
 
 .Toolbar {
@@ -18,17 +41,26 @@ body {
   right: 0;
   width: var(--toolbar-width);
   height: 100vh;
+  overflow: auto;
   background-color: #f0f0f0;
   border-left: 1px solid #e0e0e0;
 }
 
-.Toolbar__TextSetting {
-  display: block;
-  margin: 4px;
+.ToolbarSection {
+  padding-left: 4px;
 }
 
-.Input--invalid {
-  border-color: red;
-  outline-color: red;
-  color: red;
+.Toolbar__TextSetting {
+  display: block;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.ImageLibrary__ImageList {
+  padding: 0;
+}
+
+.ImageLibrary__ImageListItem {
+  list-style: none;
+  margin-bottom: 16px;
 }
