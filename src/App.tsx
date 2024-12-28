@@ -25,6 +25,7 @@ interface State {
   readonly canvasBackgroundColorInput: string;
   readonly actions: readonly Action[];
   readonly pendingTransformation: null | PendingSpriteTransformation;
+  readonly isMouseOverCanvas: boolean;
 }
 
 interface ImageFile {
@@ -97,6 +98,8 @@ interface Sprite {
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
   readonly fileInputRef: React.RefObject<HTMLInputElement>;
+  mouseX: number;
+  mouseY: number;
 
   constructor(props: Props) {
     super(props);
@@ -110,16 +113,24 @@ export class App extends Component<Props, State> {
       canvasBackgroundColorInput: "transparent",
       actions: [],
       pendingTransformation: null,
+      isMouseOverCanvas: false,
     };
 
     this.canvasRef = createRef();
     this.fileInputRef = createRef();
+    this.mouseX = 0;
+    this.mouseY = 0;
 
     this.bindMethods();
   }
 
   componentDidMount(): void {
     this.updateCanvas();
+    this.addEventListeners();
+  }
+
+  componentWillUnmount(): void {
+    this.removeEventListeners();
   }
 
   bindMethods(): void {
@@ -130,6 +141,23 @@ export class App extends Component<Props, State> {
     this.onCanvasBackgroundColorInputChange =
       this.onCanvasBackgroundColorInputChange.bind(this);
     this.onUploadButtonClick = this.onUploadButtonClick.bind(this);
+    this.onWindowKeydown = this.onWindowKeydown.bind(this);
+    this.onWindowKeyup = this.onWindowKeyup.bind(this);
+    this.onWindowMouseMove = this.onWindowMouseMove.bind(this);
+    this.onCanvasMouseEnter = this.onCanvasMouseEnter.bind(this);
+    this.onCanvasMouseLeave = this.onCanvasMouseLeave.bind(this);
+  }
+
+  addEventListeners(): void {
+    window.addEventListener("keydown", this.onWindowKeydown);
+    window.addEventListener("keyup", this.onWindowKeyup);
+    window.addEventListener("mousemove", this.onWindowMouseMove);
+  }
+
+  removeEventListeners(): void {
+    window.removeEventListener("keydown", this.onWindowKeydown);
+    window.removeEventListener("keyup", this.onWindowKeyup);
+    window.removeEventListener("mousemove", this.onWindowMouseMove);
   }
 
   override setState<K extends keyof State>(
@@ -180,6 +208,8 @@ export class App extends Component<Props, State> {
                 : " CheckerboardBackground")
             }
             ref={this.canvasRef}
+            onMouseEnter={this.onCanvasMouseEnter}
+            onMouseLeave={this.onCanvasMouseLeave}
           ></canvas>
         </div>
         <div className="Toolbar">
@@ -380,6 +410,131 @@ export class App extends Component<Props, State> {
           image,
         }),
       };
+    });
+  }
+
+  onWindowKeydown(event: KeyboardEvent): void {
+    const { key } = event;
+
+    const canvas = this.canvasRef.current;
+
+    if (
+      !this.state.isMouseOverCanvas ||
+      this.state.pendingTransformation !== null ||
+      canvas === null
+    ) {
+      return;
+    }
+
+    const { canvasWidthInput, canvasHeightInput, canvasScaleInput } =
+      this.state;
+
+    const canvasWidth = isNonNegativeIntegerString(canvasWidthInput)
+      ? Number.parseInt(canvasWidthInput)
+      : 0;
+
+    const canvasHeight = isNonNegativeIntegerString(canvasHeightInput)
+      ? Number.parseInt(canvasHeightInput)
+      : 0;
+
+    if (canvasWidth === 0 || canvasHeight === 0) {
+      return;
+    }
+
+    const canvasScale = isNonNegativeRealString(canvasScaleInput)
+      ? Number.parseFloat(canvasScaleInput)
+      : 1;
+
+    const { mouseX, mouseY } = this;
+    const rect = canvas.getBoundingClientRect();
+    const pointerX = (mouseX - rect.left) / canvasScale;
+    const pointerY = (mouseY - rect.top) / canvasScale;
+
+    if (
+      pointerX < 0 ||
+      pointerX > canvasWidth ||
+      pointerY < 0 ||
+      pointerY > canvasHeight
+    ) {
+      return;
+    }
+
+    const selectedSpriteId = getSelectedSpriteId(
+      pointerX,
+      pointerY,
+      this.state
+    );
+
+    if (selectedSpriteId === null) {
+      return;
+    }
+
+    if (key === "t") {
+      this.setState({
+        pendingTransformation: {
+          kind: PendingSpriteTransformationKind.Translate,
+          spriteId: selectedSpriteId,
+          pointerStartX: pointerX,
+          pointerStartY: pointerY,
+          pointerCurrentX: pointerX,
+          pointerCurrentY: pointerY,
+        },
+      });
+      return;
+    }
+
+    if (key === "s") {
+      this.setState({
+        pendingTransformation: {
+          kind: PendingSpriteTransformationKind.Scale,
+          spriteId: selectedSpriteId,
+          pointerStartX: pointerX,
+          pointerStartY: pointerY,
+          pointerCurrentX: pointerX,
+          pointerCurrentY: pointerY,
+        },
+      });
+      return;
+    }
+  }
+
+  onWindowKeyup(event: KeyboardEvent): void {
+    const { key } = event;
+
+    const { pendingTransformation } = this.state;
+
+    if (
+      (key.toLowerCase() === "t" &&
+        pendingTransformation !== null &&
+        pendingTransformation.kind ===
+          PendingSpriteTransformationKind.Translate) ||
+      (key.toLowerCase() === "s" &&
+        pendingTransformation !== null &&
+        pendingTransformation.kind === PendingSpriteTransformationKind.Scale)
+    ) {
+      this.setState((prevState) => ({
+        ...prevState,
+        actions: prevState.actions.concat([
+          finalizePendingTransformation(pendingTransformation, prevState),
+        ]),
+      }));
+    }
+  }
+
+  onWindowMouseMove(event: MouseEvent): void {
+    this.mouseX = event.clientX;
+    this.mouseY = event.clientY;
+  }
+
+  onCanvasMouseEnter(): void {
+    this.setState({
+      isMouseOverCanvas: true,
+    });
+  }
+
+  onCanvasMouseLeave(): void {
+    this.setState({
+      isMouseOverCanvas: false,
     });
   }
 }
@@ -695,4 +850,21 @@ function applyPendingSpriteScaling(
       width: (sprite.width * currentPointerDistance) / startPointerDistance,
     };
   });
+}
+
+function getSelectedSpriteId(
+  pointerX: number,
+  pointerY: number,
+  state: State
+): null | number {
+  // TODO
+  return null;
+}
+
+function finalizePendingTransformation(
+  pendingTransformation: PendingSpriteTransformation,
+  state: State
+): Action {
+  // TODO
+  throw new Error("Not implemented");
 }
