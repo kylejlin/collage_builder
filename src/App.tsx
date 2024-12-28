@@ -512,12 +512,15 @@ export class App extends Component<Props, State> {
         pendingTransformation !== null &&
         pendingTransformation.kind === PendingSpriteTransformationKind.Scale)
     ) {
-      this.setState((prevState) => ({
-        ...prevState,
-        actions: prevState.actions.concat([
-          finalizePendingTransformation(pendingTransformation, prevState),
-        ]),
-      }));
+      this.setState((prevState) => {
+        const sprites = getSprites(prevState);
+        return {
+          ...prevState,
+          actions: prevState.actions.concat([
+            finalizePendingSpriteTransformation(pendingTransformation, sprites),
+          ]),
+        };
+      });
     }
   }
 
@@ -793,63 +796,8 @@ function applyPendingTransformation(
   transformation: PendingSpriteTransformation,
   sprites: readonly Sprite[]
 ): readonly Sprite[] {
-  switch (transformation.kind) {
-    case PendingSpriteTransformationKind.Translate:
-      return applyPendingSpriteTranslation(transformation, sprites);
-    case PendingSpriteTransformationKind.Scale:
-      return applyPendingSpriteScaling(transformation, sprites);
-  }
-}
-
-function applyPendingSpriteTranslation(
-  transformation: PendingSpriteTranslation,
-  sprites: readonly Sprite[]
-): readonly Sprite[] {
-  return sprites.map((sprite) => {
-    if (sprite.id !== transformation.spriteId) {
-      return sprite;
-    }
-
-    return {
-      ...sprite,
-      x:
-        sprite.x +
-        transformation.pointerCurrentX -
-        transformation.pointerStartX,
-      y:
-        sprite.y +
-        transformation.pointerCurrentY -
-        transformation.pointerStartY,
-    };
-  });
-}
-
-function applyPendingSpriteScaling(
-  transformation: PendingSpriteScaling,
-  sprites: readonly Sprite[]
-): readonly Sprite[] {
-  return sprites.map((sprite) => {
-    if (sprite.id !== transformation.spriteId) {
-      return sprite;
-    }
-
-    const centerX = sprite.x + sprite.width / 2;
-    const centerY =
-      sprite.y + (sprite.width * sprite.image.height) / sprite.image.width / 2;
-    const startPointerDistance = Math.hypot(
-      transformation.pointerStartX - centerX,
-      transformation.pointerStartY - centerY
-    );
-    const currentPointerDistance = Math.hypot(
-      transformation.pointerCurrentX - centerX,
-      transformation.pointerCurrentY - centerY
-    );
-
-    return {
-      ...sprite,
-      width: (sprite.width * currentPointerDistance) / startPointerDistance,
-    };
-  });
+  const action = finalizePendingSpriteTransformation(transformation, sprites);
+  return applyAction(action, sprites);
 }
 
 function getSelectedSpriteId(
@@ -861,10 +809,59 @@ function getSelectedSpriteId(
   return null;
 }
 
-function finalizePendingTransformation(
-  pendingTransformation: PendingSpriteTransformation,
-  state: State
+function finalizePendingSpriteTransformation(
+  transformation: PendingSpriteTransformation,
+  sprites: readonly Sprite[]
 ): Action {
-  // TODO
-  throw new Error("Not implemented");
+  switch (transformation.kind) {
+    case PendingSpriteTransformationKind.Translate:
+      return finalizePendingSpriteTranslation(transformation, sprites);
+    case PendingSpriteTransformationKind.Scale:
+      return finalizePendingSpriteScaling(transformation, sprites);
+  }
+}
+
+function finalizePendingSpriteTranslation(
+  transformation: PendingSpriteTranslation,
+  sprites: readonly Sprite[]
+): Action {
+  const oldSprite = sprites.find((s) => s.id === transformation.spriteId);
+  const oldX = oldSprite === undefined ? 0 : oldSprite.x;
+  const oldY = oldSprite === undefined ? 0 : oldSprite.y;
+
+  return {
+    kind: ActionKind.Translate,
+    spriteId: transformation.spriteId,
+    newX: oldX + transformation.pointerCurrentX - transformation.pointerStartX,
+    newY: oldY + transformation.pointerCurrentY - transformation.pointerStartY,
+  };
+}
+
+function finalizePendingSpriteScaling(
+  transformation: PendingSpriteScaling,
+  sprites: readonly Sprite[]
+): Action {
+  const oldSprite = sprites.find((s) => s.id === transformation.spriteId);
+  const oldX = oldSprite === undefined ? 0 : oldSprite.x;
+  const oldY = oldSprite === undefined ? 0 : oldSprite.y;
+  const oldWidth = oldSprite === undefined ? 0 : oldSprite.width;
+  const oldImageWidth = oldSprite === undefined ? 0 : oldSprite.image.width;
+  const oldImageHeight = oldSprite === undefined ? 0 : oldSprite.image.height;
+
+  const centerX = oldX + oldWidth / 2;
+  const centerY = oldY + (oldWidth * oldImageHeight) / oldImageWidth / 2;
+  const startPointerDistance = Math.hypot(
+    transformation.pointerStartX - centerX,
+    transformation.pointerStartY - centerY
+  );
+  const currentPointerDistance = Math.hypot(
+    transformation.pointerCurrentX - centerX,
+    transformation.pointerCurrentY - centerY
+  );
+
+  return {
+    kind: ActionKind.Scale,
+    spriteId: transformation.spriteId,
+    newWidth: (oldWidth * currentPointerDistance) / startPointerDistance,
+  };
 }
