@@ -1406,8 +1406,10 @@ function finalizePendingSpriteTranslation(
   return {
     kind: ActionKind.Translate,
     spriteId: transformation.spriteId,
-    newX: oldX + transformation.pointerCurrentX - transformation.pointerStartX,
-    newY: oldY + transformation.pointerCurrentY - transformation.pointerStartY,
+    newX:
+      oldX + (transformation.pointerCurrentX - transformation.pointerStartX),
+    newY:
+      oldY + (transformation.pointerCurrentY - transformation.pointerStartY),
   };
 }
 
@@ -1421,6 +1423,22 @@ function finalizePendingSpriteScaling(
   const oldWidth = oldSprite === undefined ? 0 : oldSprite.width;
   const oldImageWidth = oldSprite === undefined ? 0 : oldSprite.image.width;
   const oldImageHeight = oldSprite === undefined ? 0 : oldSprite.image.height;
+
+  // Return a perfect no-op if the cursor hasn't moved.
+  // If JavaScript supported true real numbers, we wouldn't need to handle this
+  // case separately.
+  // However, due to floating point imprecision, we must handle this case separately
+  // or else we risk creating non-idempotent actions even when the cursor doesn't move.
+  if (
+    transformation.pointerCurrentX === transformation.pointerStartX &&
+    transformation.pointerCurrentY === transformation.pointerStartY
+  ) {
+    return {
+      kind: ActionKind.Scale,
+      spriteId: transformation.spriteId,
+      newWidth: oldWidth,
+    };
+  }
 
   const centerX = oldX + oldWidth / 2;
   const centerY = oldY + (oldWidth * oldImageHeight) / oldImageWidth / 2;
