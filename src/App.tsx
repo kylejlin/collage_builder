@@ -1244,20 +1244,27 @@ function applySpriteScaling(
   action: SpriteScaling,
   sprites: readonly Sprite[]
 ): readonly Sprite[] {
-  return sprites.map((sprite) =>
-    sprite.id === action.spriteId
-      ? {
-          ...sprite,
-          x: sprite.x - (action.newWidth - sprite.width) / 2,
-          y:
-            sprite.y -
-            ((action.newWidth * sprite.image.height) / sprite.image.width -
-              sprite.width) /
-              2,
-          width: action.newWidth,
-        }
-      : sprite
-  );
+  return sprites.map((sprite) => {
+    if (sprite.id !== action.spriteId) {
+      return sprite;
+    }
+
+    const { newWidth } = action;
+
+    const oldWidth = sprite.width;
+
+    const newHeight =
+      (action.newWidth * sprite.image.height) / sprite.image.width;
+
+    const oldHeight = (sprite.width * sprite.image.height) / sprite.image.width;
+
+    return {
+      ...sprite,
+      x: sprite.x - (newWidth - oldWidth) / 2,
+      y: sprite.y - (newHeight - oldHeight) / 2,
+      width: action.newWidth,
+    };
+  });
 }
 
 function applySpriteLayerReordering(
