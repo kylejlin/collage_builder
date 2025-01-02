@@ -167,8 +167,6 @@ interface ImportError {
 
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
-  readonly imageFileInputRef: React.RefObject<HTMLInputElement>;
-  readonly jsonFileInputRef: React.RefObject<HTMLInputElement>;
   readonly ghostCanvas: HTMLCanvasElement;
   mouseX: number;
   mouseY: number;
@@ -193,8 +191,6 @@ export class App extends Component<Props, State> {
     };
 
     this.canvasRef = createRef();
-    this.imageFileInputRef = createRef();
-    this.jsonFileInputRef = createRef();
     this.ghostCanvas = document.createElement("canvas");
     this.mouseX = 0;
     this.mouseY = 0;
@@ -380,15 +376,6 @@ export class App extends Component<Props, State> {
               ))}
             </ul>
             <div className="Toolbar__Upload">
-              <input
-                className="HiddenWithNegativeZIndex"
-                type="file"
-                accept={IMAGE_EXTENSIONS.join(",")}
-                multiple
-                onChange={this.onImageFileInputChange}
-                ref={this.imageFileInputRef}
-              />
-
               {isProcessingImageFile ? (
                 <p>Processing file...</p>
               ) : (
@@ -410,14 +397,6 @@ export class App extends Component<Props, State> {
             )}
           </div>
           <div className="ToolbarSection ImageLibrary">
-            <input
-              className="HiddenWithNegativeZIndex"
-              type="file"
-              accept=".json"
-              multiple
-              onChange={this.onJsonFileInputChange}
-              ref={this.jsonFileInputRef}
-            />
             <h2 className="SectionLabel">Export</h2>
             <button onClick={this.onDownloadSpritesDotJsonClick}>
               Download sprites.json
@@ -440,8 +419,8 @@ export class App extends Component<Props, State> {
     paintCanvas(canvas, this.state);
   }
 
-  onImageFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
-    const files = event.target.files;
+  onImageFileInputChange(event: Event): void {
+    const files = (event.target as HTMLInputElement).files;
 
     if (files === null) {
       return;
@@ -481,8 +460,8 @@ export class App extends Component<Props, State> {
     );
   }
 
-  onJsonFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
-    const files = event.target.files;
+  onJsonFileInputChange(event: Event): void {
+    const files = (event.target as HTMLInputElement).files;
 
     if (files === null) {
       return;
@@ -590,11 +569,11 @@ export class App extends Component<Props, State> {
   }
 
   onImageUploadButtonClick(): void {
-    const fileInput = this.imageFileInputRef.current;
-
-    if (fileInput === null) {
-      return;
-    }
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = IMAGE_EXTENSIONS.join(",");
+    fileInput.multiple = true;
+    fileInput.addEventListener("change", this.onImageFileInputChange);
 
     fileInput.click();
   }
@@ -1064,11 +1043,11 @@ export class App extends Component<Props, State> {
   }
 
   onUploadSpritesDotJsonClick(): void {
-    const fileInput = this.jsonFileInputRef.current;
-
-    if (fileInput === null) {
-      return;
-    }
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".json";
+    fileInput.multiple = true;
+    fileInput.addEventListener("change", this.onJsonFileInputChange);
 
     fileInput.click();
   }
@@ -1797,45 +1776,39 @@ function importSpriteDotJson(
 
       const x = sprite.x;
 
-      if (!(typeof x === "number" && isNonNegativeReal(x))) {
+      if (!(typeof x === "number" && Number.isFinite(x))) {
         return {
           succeeded: false,
           error: new Error(
             `Expected files[${String(fileIndex)}].sprites[${String(
               spriteIndex
-            )}].x to be a non-negative finite number, but got ${JSON.stringify(
-              x
-            )}`
+            )}].x to be a finite number, but got ${JSON.stringify(x)}`
           ),
         };
       }
 
       const y = sprite.y;
 
-      if (!(typeof y === "number" && isNonNegativeReal(y))) {
+      if (!(typeof y === "number" && Number.isFinite(y))) {
         return {
           succeeded: false,
           error: new Error(
             `Expected files[${String(fileIndex)}].sprites[${String(
               spriteIndex
-            )}].y to be a non-negative finite number, but got ${JSON.stringify(
-              y
-            )}`
+            )}].y to be a finite number, but got ${JSON.stringify(y)}`
           ),
         };
       }
 
       const width = sprite.width;
 
-      if (!(typeof width === "number" && isNonNegativeReal(width))) {
+      if (!(typeof width === "number" && Number.isFinite(width))) {
         return {
           succeeded: false,
           error: new Error(
             `Expected files[${String(fileIndex)}].sprites[${String(
               spriteIndex
-            )}].width to be a non-negative finite number, but got ${JSON.stringify(
-              width
-            )}`
+            )}].width to be a finite number, but got ${JSON.stringify(width)}`
           ),
         };
       }
@@ -1856,10 +1829,6 @@ function importSpriteDotJson(
     existingActions
   );
   return { succeeded: true, actions };
-}
-
-function isNonNegativeReal(n: unknown): boolean {
-  return Number.isFinite(n) && (n as number) >= 0;
 }
 
 function getNewActionsFromImportSprites(
