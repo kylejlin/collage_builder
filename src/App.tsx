@@ -1802,13 +1802,17 @@ function importSpriteDotJson(
 
       const width = sprite.width;
 
-      if (!(typeof width === "number" && Number.isFinite(width))) {
+      if (
+        !(typeof width === "number" && Number.isFinite(width) && width >= 0)
+      ) {
         return {
           succeeded: false,
           error: new Error(
             `Expected files[${String(fileIndex)}].sprites[${String(
               spriteIndex
-            )}].width to be a finite number, but got ${JSON.stringify(width)}`
+            )}].width to be a non-negative finite number, but got ${JSON.stringify(
+              width
+            )}`
           ),
         };
       }
