@@ -45,3 +45,15 @@ If the paste mode is "height", then this sets the height of the sprite that the 
 For `Z` and `Y`, you do not need to hover over any sprite (since these are not sprite-specific commands).
 
 To create a sprite, click the "Add" button next to the desired source image. Note that you must upload source images before you can create a sprite. You can upload source images by clicking the "Upload new" images.
+
+### Exporting and importing JSON files
+
+You can click the "Download sprites.json" button to export the sprite positions and dimensions.
+
+If you close the tab and come back later, you can click the "Upload sprites.json" button to import the file you downloaded earlier.
+However, **you must first upload all the images you used in the orignal collage**.
+
+When you click the "Download sprites.json" button, the downloaded files stores a file hash in each sprite.
+When you later upload that file, the app checks that every hash corresponds to an uploaded file.
+If there is one or more hash without a corresponding file, the JSON upload will fail.
+You can upload the missing file(s) and then retry uploading the JSON file.
