@@ -1858,6 +1858,14 @@ function getNewActionsFromImportSprites(
     // since it is always on the top layer.
     const { id: spriteId } = currentSprites[currentSprites.length - 1];
 
+    const scaling: SpriteScaling = {
+      kind: ActionKind.Scale,
+      spriteId,
+      newWidth: sprite.width,
+    };
+    currentSprites = applyAction(scaling, currentSprites);
+    out.push(scaling);
+
     const translation: SpriteTranslation = {
       kind: ActionKind.Translate,
       spriteId,
@@ -1866,14 +1874,6 @@ function getNewActionsFromImportSprites(
     };
     currentSprites = applyAction(translation, currentSprites);
     out.push(translation);
-
-    const scaling: SpriteScaling = {
-      kind: ActionKind.Scale,
-      spriteId,
-      newWidth: sprite.width,
-    };
-    currentSprites = applyAction(scaling, currentSprites);
-    out.push(scaling);
   }
 
   return out;
