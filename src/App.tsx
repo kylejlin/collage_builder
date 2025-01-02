@@ -1,4 +1,5 @@
 import { Component, createRef, ReactNode } from "react";
+import { sha256 as getSha256 } from "hash-wasm";
 
 enum ActionKind {
   Create = "Create",
@@ -53,6 +54,7 @@ interface ImageFile {
   readonly data: Uint8ClampedArray;
   readonly url: string;
   readonly imageElement: HTMLImageElement;
+  readonly sha256: string;
 }
 
 type Action =
@@ -138,6 +140,7 @@ interface Sprite {
 interface SpriteExportData {
   readonly spriteName: string;
   readonly imageFileName: string;
+  readonly imageSha256: string;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -975,6 +978,8 @@ function loadImageFileFromArrayBuffer(
     throw new Error("Invalid image file type. Name: " + imageName);
   }
 
+  const sha256Promise = getSha256(new Uint8Array(buffer));
+
   const blob = new Blob([buffer], {
     type: "image/" + dotlessExtension.toLowerCase(),
   });
@@ -992,14 +997,26 @@ function loadImageFileFromArrayBuffer(
       context.drawImage(imageElement, 0, 0);
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-      resolve({
-        name: imageName,
-        width: canvas.width,
-        height: canvas.height,
-        data: imageData.data,
-        url,
-        imageElement,
-      });
+      sha256Promise
+        .then((sha256) => {
+          resolve({
+            name: imageName,
+            width: canvas.width,
+            height: canvas.height,
+            data: imageData.data,
+            url,
+            imageElement,
+            sha256,
+          });
+        })
+        .catch((error: unknown) => {
+          console.error("Could not compute SHA256 hash.", error);
+
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+          reject(error);
+
+          throw error;
+        });
     });
 
     imageElement.addEventListener("error", reject);
@@ -1480,6 +1497,7 @@ function serializeSpritesAsJsonString(sprites: readonly Sprite[]): string {
   const out: SpriteExportData[] = sprites.map((sprite) => ({
     spriteName: sprite.name,
     imageFileName: sprite.image.name,
+    imageSha256: sprite.image.sha256,
     x: sprite.x,
     y: sprite.y,
     width: sprite.width,
