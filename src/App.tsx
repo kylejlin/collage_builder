@@ -34,7 +34,8 @@ const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
 type Props = object;
 
 interface State {
-  readonly isProcessingFile: boolean;
+  readonly isProcessingImageFile: boolean;
+  readonly isProcessingJsonFile: boolean;
   readonly imageFiles: readonly ImageFile[];
   readonly canvasWidthInput: string;
   readonly canvasHeightInput: string;
@@ -152,9 +153,22 @@ interface PasteBuffer {
   readonly value: number;
 }
 
+type ImportResult = ImportSuccess | ImportError;
+
+interface ImportSuccess {
+  readonly succeeded: true;
+  readonly actions: readonly Action[];
+}
+
+interface ImportError {
+  readonly succeeded: false;
+  readonly error: Error;
+}
+
 export class App extends Component<Props, State> {
   readonly canvasRef: React.RefObject<HTMLCanvasElement>;
-  readonly fileInputRef: React.RefObject<HTMLInputElement>;
+  readonly imageFileInputRef: React.RefObject<HTMLInputElement>;
+  readonly jsonFileInputRef: React.RefObject<HTMLInputElement>;
   readonly ghostCanvas: HTMLCanvasElement;
   mouseX: number;
   mouseY: number;
@@ -164,7 +178,8 @@ export class App extends Component<Props, State> {
     super(props);
 
     this.state = {
-      isProcessingFile: false,
+      isProcessingImageFile: false,
+      isProcessingJsonFile: false,
       imageFiles: [],
       canvasWidthInput: "1170",
       canvasHeightInput: "2532",
@@ -178,7 +193,8 @@ export class App extends Component<Props, State> {
     };
 
     this.canvasRef = createRef();
-    this.fileInputRef = createRef();
+    this.imageFileInputRef = createRef();
+    this.jsonFileInputRef = createRef();
     this.ghostCanvas = document.createElement("canvas");
     this.mouseX = 0;
     this.mouseY = 0;
@@ -200,13 +216,14 @@ export class App extends Component<Props, State> {
   }
 
   bindMethods(): void {
-    this.onFileInputChange = this.onFileInputChange.bind(this);
+    this.onImageFileInputChange = this.onImageFileInputChange.bind(this);
+    this.onJsonFileInputChange = this.onJsonFileInputChange.bind(this);
     this.onCanvasWidthInputChange = this.onCanvasWidthInputChange.bind(this);
     this.onCanvasHeightInputChange = this.onCanvasHeightInputChange.bind(this);
     this.onCanvasScaleInputChange = this.onCanvasScaleInputChange.bind(this);
     this.onCanvasBackgroundColorInputChange =
       this.onCanvasBackgroundColorInputChange.bind(this);
-    this.onUploadButtonClick = this.onUploadButtonClick.bind(this);
+    this.onImageUploadButtonClick = this.onImageUploadButtonClick.bind(this);
     this.onWindowKeydown = this.onWindowKeydown.bind(this);
     this.onWindowKeyup = this.onWindowKeyup.bind(this);
     this.onWindowMouseMove = this.onWindowMouseMove.bind(this);
@@ -214,6 +231,8 @@ export class App extends Component<Props, State> {
     this.onCanvasMouseLeave = this.onCanvasMouseLeave.bind(this);
     this.onDownloadSpritesDotJsonClick =
       this.onDownloadSpritesDotJsonClick.bind(this);
+    this.onUploadSpritesDotJsonClick =
+      this.onUploadSpritesDotJsonClick.bind(this);
   }
 
   addEventListeners(): void {
@@ -257,7 +276,8 @@ export class App extends Component<Props, State> {
 
   render(): ReactNode {
     const {
-      isProcessingFile,
+      isProcessingImageFile,
+      isProcessingJsonFile,
       imageFiles,
       canvasWidthInput,
       canvasHeightInput,
@@ -363,20 +383,41 @@ export class App extends Component<Props, State> {
               <input
                 className="HiddenWithNegativeZIndex"
                 type="file"
-                accept={[".zip"].concat(IMAGE_EXTENSIONS).join(",")}
+                accept={IMAGE_EXTENSIONS.join(",")}
                 multiple
-                onChange={this.onFileInputChange}
-                ref={this.fileInputRef}
+                onChange={this.onImageFileInputChange}
+                ref={this.imageFileInputRef}
               />
 
-              {isProcessingFile ? (
+              {isProcessingImageFile ? (
                 <p>Processing file...</p>
               ) : (
-                <button onClick={this.onUploadButtonClick}>Upload new</button>
+                <button onClick={this.onImageUploadButtonClick}>
+                  Upload new
+                </button>
               )}
             </div>
           </div>
           <div className="ToolbarSection ImageLibrary">
+            <h2 className="SectionLabel">Import</h2>
+
+            {isProcessingJsonFile ? (
+              <p>Processing file...</p>
+            ) : (
+              <button onClick={this.onUploadSpritesDotJsonClick}>
+                Upload sprites.json
+              </button>
+            )}
+          </div>
+          <div className="ToolbarSection ImageLibrary">
+            <input
+              className="HiddenWithNegativeZIndex"
+              type="file"
+              accept=".json"
+              multiple
+              onChange={this.onJsonFileInputChange}
+              ref={this.jsonFileInputRef}
+            />
             <h2 className="SectionLabel">Export</h2>
             <button onClick={this.onDownloadSpritesDotJsonClick}>
               Download sprites.json
@@ -399,7 +440,7 @@ export class App extends Component<Props, State> {
     paintCanvas(canvas, this.state);
   }
 
-  onFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
+  onImageFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
     const files = event.target.files;
 
     if (files === null) {
@@ -408,7 +449,7 @@ export class App extends Component<Props, State> {
 
     this.setState(
       {
-        isProcessingFile: true,
+        isProcessingImageFile: true,
       },
       () => {
         void Promise.all(
@@ -431,10 +472,92 @@ export class App extends Component<Props, State> {
               .concat(newImageFiles)
               .sort((a, b) => compareStrings(a.name, b.name));
             return {
-              isProcessingFile: false,
+              isProcessingImageFile: false,
               imageFiles: combinedImageFiles,
             };
           });
+        });
+      }
+    );
+  }
+
+  onJsonFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    const files = event.target.files;
+
+    if (files === null) {
+      return;
+    }
+
+    this.setState(
+      {
+        isProcessingJsonFile: true,
+      },
+      () => {
+        void Promise.all(
+          Array.from(files).map((file) => {
+            if (!file.name.toLowerCase().endsWith(".json")) {
+              const errorMessage = "Invalid JSON file name: " + file.name;
+              window.alert(errorMessage);
+              throw new Error(errorMessage);
+            }
+
+            return file.arrayBuffer().then((buffer) => {
+              let fileString = "";
+
+              try {
+                fileString = new TextDecoder().decode(buffer);
+              } catch (rawError) {
+                const errorMessage =
+                  "Invalid file encoding for file " +
+                  file.name +
+                  ". Error: " +
+                  String(rawError);
+                window.alert(errorMessage);
+                throw new Error(errorMessage);
+              }
+
+              let jsonObject: unknown;
+
+              try {
+                jsonObject = JSON.parse(fileString);
+              } catch (rawError) {
+                const errorMessage =
+                  "Invalid JSON in file " +
+                  file.name +
+                  ". Error: " +
+                  String(rawError);
+                window.alert(errorMessage);
+                throw new Error(errorMessage);
+              }
+
+              return jsonObject;
+            });
+          })
+        ).then((jsonObjects: readonly unknown[]) => {
+          let errorMessage: null | string = null;
+          this.setState(
+            (prevState) => {
+              const importResult = importSpriteDotJson(
+                jsonObjects,
+                prevState.imageFiles,
+                prevState.actions
+              );
+              if (!importResult.succeeded) {
+                errorMessage = importResult.error.message;
+                return prevState;
+              }
+              return {
+                ...prevState,
+                isProcessingJsonFile: false,
+                actions: prevState.actions.concat(importResult.actions),
+              };
+            },
+            () => {
+              if (errorMessage !== null) {
+                window.alert(errorMessage);
+              }
+            }
+          );
         });
       }
     );
@@ -466,8 +589,8 @@ export class App extends Component<Props, State> {
     });
   }
 
-  onUploadButtonClick(): void {
-    const fileInput = this.fileInputRef.current;
+  onImageUploadButtonClick(): void {
+    const fileInput = this.imageFileInputRef.current;
 
     if (fileInput === null) {
       return;
@@ -940,6 +1063,16 @@ export class App extends Component<Props, State> {
     downloadJsonString(spritesJson, "sprites.json");
   }
 
+  onUploadSpritesDotJsonClick(): void {
+    const fileInput = this.jsonFileInputRef.current;
+
+    if (fileInput === null) {
+      return;
+    }
+
+    fileInput.click();
+  }
+
   alert(message: string): void {
     this.isWindowDialogOpen = true;
     window.alert(message);
@@ -1176,9 +1309,13 @@ function paintCanvas(canvas: HTMLCanvasElement, state: State): void {
   }
 }
 
-function getSprites(state: State): readonly Sprite[] {
-  const { actions, pendingTransformation } = state;
-
+function getSprites({
+  actions,
+  pendingTransformation,
+}: {
+  readonly actions: readonly Action[];
+  readonly pendingTransformation: null | PendingSpriteTransformation;
+}): readonly Sprite[] {
   let sprites: readonly Sprite[] = [];
 
   for (const action of actions) {
@@ -1560,4 +1697,211 @@ function areSpritesEqual(a: Sprite, b: Sprite): boolean {
     a.y === b.y &&
     a.width === b.width
   );
+}
+
+function importSpriteDotJson(
+  jsonObjects: readonly unknown[],
+  imageFiles: readonly ImageFile[],
+  existingActions: readonly Action[]
+): ImportResult {
+  const importSprites: Sprite[] = [];
+
+  for (let fileIndex = 0; fileIndex < jsonObjects.length; ++fileIndex) {
+    const uncheckedFile = jsonObjects[fileIndex];
+
+    if (!Array.isArray(uncheckedFile)) {
+      return {
+        succeeded: false,
+        error: new Error(
+          "Expected an array of objects but got " +
+            JSON.stringify(uncheckedFile)
+        ),
+      };
+    }
+
+    const file = uncheckedFile as readonly unknown[];
+
+    for (let spriteIndex = 0; spriteIndex < file.length; ++spriteIndex) {
+      const uncheckedSprite = file[spriteIndex];
+
+      if (!(typeof uncheckedSprite === "object" && uncheckedSprite !== null)) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}] to be an object, but got ${JSON.stringify(uncheckedSprite)}`
+          ),
+        };
+      }
+
+      const sprite = uncheckedSprite as Record<string, unknown>;
+
+      const spriteName = sprite.spriteName;
+
+      if (typeof spriteName !== "string") {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].spriteName to be a string, but got ${JSON.stringify(
+              spriteName
+            )}`
+          ),
+        };
+      }
+
+      const imageFileName = sprite.imageFileName;
+
+      if (typeof imageFileName !== "string") {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].imageFileName to be a string, but got ${JSON.stringify(
+              imageFileName
+            )}`
+          ),
+        };
+      }
+
+      const imageSha256 = sprite.imageSha256;
+
+      if (typeof imageSha256 !== "string") {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].imageSha256 to be a string, but got ${JSON.stringify(
+              imageSha256
+            )}`
+          ),
+        };
+      }
+
+      const image = imageFiles.find((i) => i.sha256 === imageSha256);
+
+      if (image === undefined) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Could not find an image with SHA256 hash ${imageSha256} (referenced by files[${String(
+              fileIndex
+            )}].sprites[${String(spriteIndex)}].imageSha256)`
+          ),
+        };
+      }
+
+      const x = sprite.x;
+
+      if (!(typeof x === "number" && isNonNegativeReal(x))) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].x to be a non-negative finite number, but got ${JSON.stringify(
+              x
+            )}`
+          ),
+        };
+      }
+
+      const y = sprite.y;
+
+      if (!(typeof y === "number" && isNonNegativeReal(y))) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].y to be a non-negative finite number, but got ${JSON.stringify(
+              y
+            )}`
+          ),
+        };
+      }
+
+      const width = sprite.width;
+
+      if (!(typeof width === "number" && isNonNegativeReal(width))) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].width to be a non-negative finite number, but got ${JSON.stringify(
+              width
+            )}`
+          ),
+        };
+      }
+
+      importSprites.push({
+        name: spriteName,
+        id: -1,
+        image,
+        x,
+        y,
+        width,
+      });
+    }
+  }
+
+  const actions = getNewActionsFromImportSprites(
+    importSprites,
+    existingActions
+  );
+  return { succeeded: true, actions };
+}
+
+function isNonNegativeReal(n: unknown): boolean {
+  return Number.isFinite(n) && (n as number) >= 0;
+}
+
+function getNewActionsFromImportSprites(
+  importSprites: readonly Sprite[],
+  existingActions: readonly Action[]
+): readonly Action[] {
+  let currentSprites = getSprites({
+    actions: existingActions,
+    pendingTransformation: null,
+  });
+
+  const out: Action[] = [];
+
+  for (const sprite of importSprites) {
+    const creation: SpriteCreation = {
+      kind: ActionKind.Create,
+      image: sprite.image,
+    };
+    currentSprites = applyAction(creation, currentSprites);
+    out.push(creation);
+
+    // The newly created sprite is always the last one in the array,
+    // since it is always on the top layer.
+    const { id: spriteId } = currentSprites[currentSprites.length - 1];
+
+    const translation: SpriteTranslation = {
+      kind: ActionKind.Translate,
+      spriteId,
+      newX: sprite.x,
+      newY: sprite.y,
+    };
+    currentSprites = applyAction(translation, currentSprites);
+    out.push(translation);
+
+    const scaling: SpriteScaling = {
+      kind: ActionKind.Scale,
+      spriteId,
+      newWidth: sprite.width,
+    };
+    currentSprites = applyAction(scaling, currentSprites);
+    out.push(scaling);
+  }
+
+  return out;
 }
