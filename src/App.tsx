@@ -1056,13 +1056,31 @@ function getUnusedSpriteName(
   idealName: string,
   sprites: readonly Sprite[]
 ): string {
+  return getUnusedSpriteNameWithMinimumCounter(idealName, sprites, 1);
+}
+
+function getUnusedSpriteNameWithMinimumCounter(
+  idealName: string,
+  sprites: readonly Sprite[],
+  minimumCounter: number
+): string {
   const existingNames = new Set(sprites.map((sprite) => sprite.name));
 
   if (!existingNames.has(idealName)) {
     return idealName;
   }
 
-  let counter = 1;
+  const match = / \((\d+)\)$/.exec(idealName);
+  if (match !== null) {
+    const minimumCounter = 1 + Number.parseInt(match[1], 10);
+    return getUnusedSpriteNameWithMinimumCounter(
+      idealName.slice(0, -match[0].length),
+      sprites,
+      minimumCounter
+    );
+  }
+
+  let counter = minimumCounter;
   let candidate = idealName + " (" + String(counter) + ")";
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
