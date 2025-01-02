@@ -523,7 +523,7 @@ export class App extends Component<Props, State> {
               );
               if (!importResult.succeeded) {
                 errorMessage = importResult.error.message;
-                return prevState;
+                return { ...prevState, isProcessingJsonFile: false };
               }
               return {
                 ...prevState,
