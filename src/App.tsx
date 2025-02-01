@@ -9,6 +9,7 @@ enum ActionKind {
   Scale = "Scale",
   ReorderLayers = "ReorderLayers",
   Rename = "Rename",
+  BulkImport = "BulkImport",
 }
 
 enum PendingSpriteTransformationKind {
@@ -30,6 +31,8 @@ enum PasteBufferMode {
 }
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"];
+
+const MAX_IMPORT_ASPECT_RATIO_DIFF = 0.001;
 
 type Props = object;
 
@@ -65,7 +68,8 @@ type Action =
   | SpriteTranslation
   | SpriteScaling
   | SpriteLayerReordering
-  | SpriteRenaming;
+  | SpriteRenaming
+  | BulkImport;
 
 interface SpriteCreation {
   readonly kind: ActionKind.Create;
@@ -105,6 +109,19 @@ interface SpriteRenaming {
   readonly kind: ActionKind.Rename;
   readonly spriteId: number;
   readonly idealNewName: string;
+}
+
+interface BulkImport {
+  readonly kind: ActionKind.BulkImport;
+  readonly idealSprites: readonly IdealSprite[];
+}
+
+interface IdealSprite {
+  readonly spriteName: string;
+  readonly image: ImageFile;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
 }
 
 type PendingSpriteTransformation =
@@ -157,7 +174,7 @@ type ImportResult = ImportSuccess | ImportError;
 
 interface ImportSuccess {
   readonly succeeded: true;
-  readonly actions: readonly Action[];
+  readonly action: BulkImport;
 }
 
 interface ImportError {
@@ -518,8 +535,7 @@ export class App extends Component<Props, State> {
             (prevState) => {
               const importResult = importSpriteDotJson(
                 jsonObjects,
-                prevState.imageFiles,
-                prevState.actions
+                prevState.imageFiles
               );
               if (!importResult.succeeded) {
                 errorMessage = importResult.error.message;
@@ -528,7 +544,7 @@ export class App extends Component<Props, State> {
               return {
                 ...prevState,
                 isProcessingJsonFile: false,
-                actions: prevState.actions.concat(importResult.actions),
+                actions: prevState.actions.concat([importResult.action]),
               };
             },
             () => {
@@ -1327,6 +1343,8 @@ function applyAction(
       return applySpriteLayerReordering(action, sprites);
     case ActionKind.Rename:
       return applySpriteRenaming(action, sprites);
+    case ActionKind.BulkImport:
+      return applyBulkImport(action, sprites);
   }
 }
 
@@ -1472,6 +1490,31 @@ function applySpriteRenaming(
   return sprites.map((sprite) =>
     sprite.id === action.spriteId ? { ...sprite, name: newName } : sprite
   );
+}
+
+function applyBulkImport(
+  action: BulkImport,
+  sprites: readonly Sprite[]
+): readonly Sprite[] {
+  const out: Sprite[] = sprites.slice();
+
+  const { idealSprites } = action;
+
+  for (const idealSprite of idealSprites) {
+    const spriteName = getUnusedSpriteName(idealSprite.spriteName, out);
+    const image = idealSprite.image;
+
+    out.push({
+      name: spriteName,
+      id: getUnusedId(out),
+      image,
+      x: idealSprite.x,
+      y: idealSprite.y,
+      width: idealSprite.width,
+    });
+  }
+
+  return out;
 }
 
 function applyPendingTransformation(
@@ -1680,10 +1723,9 @@ function areSpritesEqual(a: Sprite, b: Sprite): boolean {
 
 function importSpriteDotJson(
   jsonObjects: readonly unknown[],
-  imageFiles: readonly ImageFile[],
-  existingActions: readonly Action[]
+  imageFiles: readonly ImageFile[]
 ): ImportResult {
-  const importSprites: Sprite[] = [];
+  const idealSprites: IdealSprite[] = [];
 
   for (let fileIndex = 0; fileIndex < jsonObjects.length; ++fileIndex) {
     const uncheckedFile = jsonObjects[fileIndex];
@@ -1817,9 +1859,47 @@ function importSpriteDotJson(
         };
       }
 
-      importSprites.push({
-        name: spriteName,
-        id: -1,
+      const height = sprite.height;
+
+      if (
+        !(typeof height === "number" && Number.isFinite(height) && height >= 0)
+      ) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].height to be a non-negative finite number, but got ${JSON.stringify(
+              height
+            )}`
+          ),
+        };
+      }
+
+      if (
+        !(
+          width / height - image.width / image.height <=
+          MAX_IMPORT_ASPECT_RATIO_DIFF
+        )
+      ) {
+        return {
+          succeeded: false,
+          error: new Error(
+            `Expected files[${String(fileIndex)}].sprites[${String(
+              spriteIndex
+            )}].width / .height to be "close" to ${String(
+              image.width
+            )} / ${String(image.height)}, but got ${String(width)} / ${String(
+              height
+            )}. We define "close" as within ${String(
+              MAX_IMPORT_ASPECT_RATIO_DIFF
+            )}.`
+          ),
+        };
+      }
+
+      idealSprites.push({
+        spriteName,
         image,
         x,
         y,
@@ -1828,53 +1908,10 @@ function importSpriteDotJson(
     }
   }
 
-  const actions = getNewActionsFromImportSprites(
-    importSprites,
-    existingActions
-  );
-  return { succeeded: true, actions };
-}
+  const action: BulkImport = {
+    kind: ActionKind.BulkImport,
+    idealSprites,
+  };
 
-function getNewActionsFromImportSprites(
-  importSprites: readonly Sprite[],
-  existingActions: readonly Action[]
-): readonly Action[] {
-  let currentSprites = getSprites({
-    actions: existingActions,
-    pendingTransformation: null,
-  });
-
-  const out: Action[] = [];
-
-  for (const sprite of importSprites) {
-    const creation: SpriteCreation = {
-      kind: ActionKind.Create,
-      image: sprite.image,
-    };
-    currentSprites = applyAction(creation, currentSprites);
-    out.push(creation);
-
-    // The newly created sprite is always the last one in the array,
-    // since it is always on the top layer.
-    const { id: spriteId } = currentSprites[currentSprites.length - 1];
-
-    const scaling: SpriteScaling = {
-      kind: ActionKind.Scale,
-      spriteId,
-      newWidth: sprite.width,
-    };
-    currentSprites = applyAction(scaling, currentSprites);
-    out.push(scaling);
-
-    const translation: SpriteTranslation = {
-      kind: ActionKind.Translate,
-      spriteId,
-      newX: sprite.x,
-      newY: sprite.y,
-    };
-    currentSprites = applyAction(translation, currentSprites);
-    out.push(translation);
-  }
-
-  return out;
+  return { succeeded: true, action };
 }
