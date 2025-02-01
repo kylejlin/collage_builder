@@ -10,4 +10,4 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>
 );
 
-console.log("Launched Collage Maker v" + VERSION_WITHOUT_V);
+console.log("Launched Collage Maker v" + VERSION_WITHOUT_V + ".");
